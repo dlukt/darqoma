@@ -65,6 +65,7 @@ config :pleroma, Pleroma.Upload,
   link_name: false,
   filename_display_max_length: 30,
   base_url: nil,
+  all_base_urls: nil,
   allowed_mime_types: ["image", "audio", "video"]
 
 config :pleroma, Pleroma.Uploaders.Local, uploads: "uploads"

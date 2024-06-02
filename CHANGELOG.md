@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - status and user HTML pages now provide ActivityPub alternate links
 - the `prune_objects` mix task no longer deletes pinned posts by default
 - added `--prune-pinned` and `--keep-followed {posts,full,none}` options to the `prune_objects` mix task
+- new config option `Pleroma.Upload, :all_base_urls`
 
 ### Fixed
 - Internal actors no longer pretend to have unresolvable follow(er|ing) collections
@@ -21,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   this lead e.g. to unlisted replies from Pleroma instances being partially treated as private posts
 - fixed our fetch actor advertising bogus follower and following collection ActivityPub IDs
 - fix network-path references not being handled by media proxy
+- if `Pleroma.Upload, :all_base_urls` is set accordingly, uploaded files can now be deleted after a domain migration
 
 ### Changed
 - Internal and relay actors are now again represented with type "Application"
