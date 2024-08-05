@@ -65,7 +65,38 @@ defmodule Pleroma.Web.Auth.LDAPAuthenticator do
             end
           end
 
-          bind_user(connection, ldap, name, password)
+          #TODO
+          # Make optional bind mode between simple and anonymous 
+          # through a select option in admin-fe interface.
+
+          ldap_username = System.get_env("LDAP_READONLY_USER_USERNAME") || "readonly"  
+          ldap_pwd = System.get_env("LDAP_READONLY_USER_PASSWORD")
+          base = Keyword.get(ldap, :base)
+          base_parts = String.split(base, ",")
+          root_base = Enum.join(Enum.drop_while(base_parts, fn x -> !String.starts_with?(x, "dc") end), ",")
+          dn = "cn=#{ldap_username},#{root_base}"
+
+          case :eldap.simple_bind(
+            connection, 
+            dn,
+            ldap_pwd
+          ) do
+            :ok ->
+
+            scope = :eldap.wholeSubtree()
+            filter = :eldap.equalityMatch("uid", name)
+            deref = :eldap.neverDerefAliases()
+
+            case :eldap.search(connection, base: base, scope: scope, deref: deref, filter: filter, timeout: @search_timeout) do
+              {:ok, {:eldap_search_result, [{:eldap_entry, _, attributes}], _, _}} ->
+
+                bind_user(connection, ldap, attributes, name, password)
+
+              error ->
+                Logger.error("Binding error: #{inspect(error)}")
+            end
+          end
+
         after
           :eldap.close(connection)
         end
@@ -76,18 +107,21 @@ defmodule Pleroma.Web.Auth.LDAPAuthenticator do
     end
   end
 
-  defp bind_user(connection, ldap, name, password) do
-    uid = Keyword.get(ldap, :uid, "cn")
+  defp bind_user(connection, ldap, attributes, name, password) do
+    #uid = Keyword.get(ldap, :uid, "cn")
     base = Keyword.get(ldap, :base)
+    cn_attr = List.keyfind(attributes, ~c"cn", 0)
+    cn = Enum.at(Tuple.to_list(cn_attr),1)
+    attr = "cn"
 
-    case :eldap.simple_bind(connection, "#{uid}=#{name},#{base}", password) do
+    case :eldap.simple_bind(connection, "#{attr}=#{cn},#{base}", password) do
       :ok ->
         case fetch_user(name) do
           %User{} = user ->
             user
-
+          
           _ ->
-            register_user(connection, base, uid, name)
+            register_user(attributes, name)
         end
 
       error ->
@@ -95,35 +129,26 @@ defmodule Pleroma.Web.Auth.LDAPAuthenticator do
     end
   end
 
-  defp register_user(connection, base, uid, name) do
-    case :eldap.search(connection, [
-           {:base, to_charlist(base)},
-           {:filter, :eldap.equalityMatch(to_charlist(uid), to_charlist(name))},
-           {:scope, :eldap.wholeSubtree()},
-           {:timeout, @search_timeout}
-         ]) do
-      {:ok, {:eldap_search_result, [{:eldap_entry, _, attributes}], _, _}} ->
-        params = %{
-          name: name,
-          nickname: name,
-          password: nil
-        }
+  defp register_user(attributes, name) do
 
-        params =
-          case List.keyfind(attributes, ~c"mail", 0) do
-            {_, [mail]} -> Map.put_new(params, :email, :erlang.list_to_binary(mail))
-            _ -> params
-          end
+    params = %{
+      name: name,
+      nickname: name,
+      password: nil
+    }
 
-        changeset = User.register_changeset_ldap(%User{}, params)
+    params =
+      case List.keyfind(attributes, ~c"mail", 0) do
+        {_, [mail]} -> Map.put_new(params, :email, :erlang.list_to_binary(mail))
+        _ -> params
+      end
 
-        case User.register(changeset) do
-          {:ok, user} -> user
-          error -> error
-        end
+    changeset = User.register_changeset_ldap(%User{}, params)
 
-      error ->
-        error
+    case User.register(changeset) do
+      {:ok, user} -> user
+      error -> error
     end
+
   end
 end
