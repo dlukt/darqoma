@@ -19,9 +19,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Meilisearch: order of results returned from our REST API now actually matches how Meilisearch ranks results
 - Emoji are now federated as anonymous objects, fixing issues with
   some strict servers e.g. rejecting e.g. remote emoji reactions
+- LDAP authentication did not work in Docker because the `eldap` module was missing
 
 ## Changed
 - Refactored Rich Media to cache the content in the database. Fetching operations that could block status rendering have been eliminated.
+- Modified the LDAP authentication process, to allow logging against servers that require _simple authentication_ instead of _anonymous_ one to access the directory
 
 ## 2024.04.1 (Security)
 
