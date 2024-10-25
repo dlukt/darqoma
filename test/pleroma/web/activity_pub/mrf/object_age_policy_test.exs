@@ -57,6 +57,15 @@ defmodule Pleroma.Web.ActivityPub.MRF.ObjectAgePolicyTest do
       assert match?({:reject, _}, ObjectAgePolicy.filter(data))
     end
 
+    test "it doesn't reject a fetched post" do
+      clear_config([:mrf_object_age, :actions], [:reject])
+
+      data = get_old_message()
+      object = data["object"]
+
+      assert match?({:ok, _}, ObjectAgePolicy.filter(object))
+    end
+
     test "it allows a new post" do
       clear_config([:mrf_object_age, :actions], [:reject])
 

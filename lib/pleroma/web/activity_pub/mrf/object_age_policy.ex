@@ -11,12 +11,36 @@ defmodule Pleroma.Web.ActivityPub.MRF.ObjectAgePolicy do
   @moduledoc "Filter activities depending on their age"
   @behaviour Pleroma.Web.ActivityPub.MRF.Policy
 
-  defp check_date(%{"object" => %{"published" => published}} = message) do
+  defp update_to_cc(message, to, cc) do
+    message =
+      message
+      |> Map.put("to", to)
+      |> Map.put("cc", cc)
+
+    if Map.has_key?(message, "object") do
+      message
+      |> Kernel.put_in(["object", "to"], to)
+      |> Kernel.put_in(["object", "cc"], cc)
+    else
+      message
+    end
+  end
+
+  defp check_date(%{"object" => %{"published" => _} = object} = activity) do
+    with {:ok, object} <- check_date(object) do
+      activity = activity |> Map.put("object", object)
+      {:ok, activity}
+    else
+      e -> e
+    end
+  end
+
+  defp check_date(%{"published" => published} = object) do
     with %DateTime{} = now <- DateTime.utc_now(),
          {:ok, %DateTime{} = then, _} <- DateTime.from_iso8601(published),
          max_ttl <- Config.get([:mrf_object_age, :threshold]),
          {:ttl, false} <- {:ttl, DateTime.diff(now, then) > max_ttl} do
-      {:ok, message}
+      {:ok, object}
     else
       {:ttl, true} ->
         {:reject, nil}
@@ -47,10 +71,7 @@ defmodule Pleroma.Web.ActivityPub.MRF.ObjectAgePolicy do
 
         message =
           message
-          |> Map.put("to", to)
-          |> Map.put("cc", cc)
-          |> Kernel.put_in(["object", "to"], to)
-          |> Kernel.put_in(["object", "cc"], cc)
+          |> update_to_cc(to, cc)
 
         {:ok, message}
       else
@@ -70,10 +91,7 @@ defmodule Pleroma.Web.ActivityPub.MRF.ObjectAgePolicy do
 
         message =
           message
-          |> Map.put("to", to)
-          |> Map.put("cc", cc)
-          |> Kernel.put_in(["object", "to"], to)
-          |> Kernel.put_in(["object", "cc"], cc)
+          |> update_to_cc(to, cc)
 
         {:ok, message}
       else
@@ -85,11 +103,18 @@ defmodule Pleroma.Web.ActivityPub.MRF.ObjectAgePolicy do
     end
   end
 
-  @impl true
-  def filter(%{"type" => "Create", "object" => %{"published" => _}} = message) do
+  defp maybe_check_reject(message, _actions, false) do
+    {:ok, message}
+  end
+
+  defp maybe_check_reject(message, actions, true) do
+    check_reject(message, actions)
+  end
+
+  defp check(message, allow_reject) do
     with actions <- Config.get([:mrf_object_age, :actions]),
          {:reject, _} <- check_date(message),
-         {:ok, message} <- check_reject(message, actions),
+         {:ok, message} <- maybe_check_reject(message, actions, allow_reject),
          {:ok, message} <- check_delist(message, actions),
          {:ok, message} <- check_strip_followers(message, actions) do
       {:ok, message}
@@ -97,6 +122,17 @@ defmodule Pleroma.Web.ActivityPub.MRF.ObjectAgePolicy do
       # check_date() is allowed to short-circuit the pipeline
       e -> e
     end
+  end
+
+  @impl true
+  def filter(%{"type" => "Create", "object" => %{"published" => _}} = message) do
+    check(message, true)
+  end
+
+  @impl true
+  def filter(%{"type" => type, "published" => _} = message)
+      when type in Pleroma.Constants.object_types() do
+    check(message, false)
   end
 
   @impl true
