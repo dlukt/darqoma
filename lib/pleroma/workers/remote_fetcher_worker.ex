@@ -4,12 +4,32 @@
 
 defmodule Pleroma.Workers.RemoteFetcherWorker do
   alias Pleroma.Object.Fetcher
+  alias Pleroma.Object
+  alias Pleroma.Web.ActivityPub.ActivityPub
 
   use Pleroma.Workers.WorkerHelper,
     queue: "remote_fetcher",
     unique: [period: 300, states: Oban.Job.states(), keys: [:op, :id]]
 
   @impl Oban.Worker
+
+  def perform(%Job{args: %{"op" => "fetch_outbox", "id" => address}}) do
+    with {:ok, outbox} <- ActivityPub.fetch_and_prepare_outbox_from_ap_id(address) do
+      Enum.each(Enum.reverse(outbox), fn {ap_id, _} ->
+        if is_nil(Object.get_cached_by_ap_id(ap_id)) do
+          enqueue("fetch_remote", %{
+            "id" => ap_id,
+            "depth" => 1
+          })
+        end
+      end)
+
+      :ok
+    else
+      e -> {:error, e}
+    end
+  end
+
   def perform(%Job{args: %{"op" => "fetch_remote", "id" => id} = args}) do
     case Fetcher.fetch_object_from_id(id, depth: args["depth"]) do
       {:ok, _object} ->

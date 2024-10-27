@@ -19,7 +19,7 @@ defmodule Pleroma.EctoType.ActivityPub.ObjectValidators.ObjectID do
 
   def cast(%{"id" => object}), do: cast(object)
 
-  def cast(_), do: :error
+  def cast(o), do: {:error, o}
 
   def dump(data), do: {:ok, data}
 

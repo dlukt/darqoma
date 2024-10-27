@@ -152,6 +152,7 @@ defmodule Pleroma.User do
     field(:also_known_as, {:array, ObjectValidators.ObjectID}, default: [])
     field(:inbox, :string)
     field(:shared_inbox, :string)
+    field(:outbox, :string, default: nil)
     field(:last_active_at, :naive_datetime)
     field(:disclose_client, :boolean, default: true)
     field(:pinned_objects, :map, default: %{})
@@ -469,6 +470,7 @@ defmodule Pleroma.User do
         :ap_id,
         :inbox,
         :shared_inbox,
+        :outbox,
         :nickname,
         :avatar,
         :ap_enabled,

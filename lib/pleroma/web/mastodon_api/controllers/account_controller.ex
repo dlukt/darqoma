@@ -306,6 +306,8 @@ defmodule Pleroma.Web.MastodonAPI.AccountController do
   def statuses(%{assigns: %{user: reading_user}} = conn, params) do
     with %User{} = user <- User.get_cached_by_nickname_or_id(params.id, for: reading_user),
          :visible <- User.visible_for(user, reading_user) do
+      ActivityPub.enqueue_outbox_fetches(user)
+
       params =
         params
         |> Map.delete(:tagged)

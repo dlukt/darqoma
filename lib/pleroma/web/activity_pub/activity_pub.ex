@@ -1587,7 +1587,8 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
     actor_type = data["type"] || "Person"
 
     featured_address = data["featured"]
-    {:ok, pinned_objects} = fetch_and_prepare_featured_from_ap_id(featured_address)
+    {:ok, pinned_objects} = fetch_and_prepare_outbox_from_ap_id(featured_address)
+    outbox_address = data["outbox"]
 
     # first, check that the owner is correct
     signing_key =
@@ -1644,6 +1645,7 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
       also_known_as: also_known_as,
       signing_key: signing_key,
       inbox: data["inbox"],
+      outbox: outbox_address,
       shared_inbox: shared_inbox,
       pinned_objects: pinned_objects,
       nickname: nickname
@@ -1790,7 +1792,7 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
     end
   end
 
-  def pin_data_from_featured_collection(%{
+  def activity_data_from_outbox_collection(%{
         "type" => "OrderedCollection",
         "first" => first
       }) do
@@ -1805,7 +1807,7 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
     end
   end
 
-  def pin_data_from_featured_collection(
+  def activity_data_from_outbox_collection(
         %{
           "type" => type
         } = collection
@@ -1821,21 +1823,23 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
     end)
   end
 
-  def pin_data_from_featured_collection(obj) do
-    Logger.error("Could not parse featured collection #{inspect(obj)}")
+  def activity_data_from_outbox_collection(obj) do
+    Logger.error("Could not parse outbox collection #{inspect(obj)}")
     %{}
   end
 
-  def fetch_and_prepare_featured_from_ap_id(nil) do
+  def fetch_and_prepare_outbox_from_ap_id(nil) do
     {:ok, %{}}
   end
 
-  def fetch_and_prepare_featured_from_ap_id(ap_id) do
+  def fetch_and_prepare_outbox_from_ap_id(ap_id) do
+    Logger.info("Fetching outbox #{ap_id}")
+
     with {:ok, data} <- Fetcher.fetch_and_contain_remote_object_from_id(ap_id) do
-      {:ok, pin_data_from_featured_collection(data)}
+      {:ok, activity_data_from_outbox_collection(data)}
     else
       e ->
-        Logger.error("Could not decode featured collection at fetch #{ap_id}, #{inspect(e)}")
+        Logger.error("Could not decode outbox collection at fetch #{ap_id}, #{inspect(e)}")
         {:ok, %{}}
     end
   end
@@ -1853,6 +1857,19 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
   end
 
   def enqueue_pin_fetches(_), do: nil
+
+  def enqueue_outbox_fetches(%{outbox: outbox_address}) do
+    # enqueue a task to fetch the outbox
+    Logger.debug("Refetching outbox #{outbox_address}")
+
+    Pleroma.Workers.RemoteFetcherWorker.enqueue("fetch_outbox", %{
+      "id" => outbox_address
+    })
+
+    :ok
+  end
+
+  def enqueue_outbox_fetches(_), do: :error
 
   def make_user_from_ap_id(ap_id, additional \\ []) do
     user = User.get_cached_by_ap_id(ap_id)
