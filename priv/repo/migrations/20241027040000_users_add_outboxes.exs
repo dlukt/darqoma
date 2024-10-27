@@ -5,6 +5,8 @@ defmodule Pleroma.Repo.Migrations.UsersAddOutboxes do
     alter table(:users) do
       add_if_not_exists(:outbox, :text)
     end
+
+    execute("update users set outbox = replace(inbox, 'inbox', 'outbox')")
   end
 
   def down do
