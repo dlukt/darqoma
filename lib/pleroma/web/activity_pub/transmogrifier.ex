@@ -637,10 +637,10 @@ defmodule Pleroma.Web.ActivityPub.Transmogrifier do
     end
   end
 
-  defp handle_incoming_normalised(%{"object" => o}, options),
+  defp handle_incoming_normalised(%{"object" => o, "_akkoma_fake" => true}, options),
     do: handle_incoming_normalised(o, options)
 
-  defp handle_incoming_normalised(o, _), do: {:error, {:unknown_object_class, o}}
+  defp handle_incoming_normalised(o, _), do: :error
 
   @spec get_obj_helper(String.t(), Keyword.t()) :: {:ok, Object.t()} | nil
   def get_obj_helper(id, options \\ []) do
