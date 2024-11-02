@@ -145,7 +145,7 @@ defmodule Pleroma.Mixfile do
       {:ex_aws, "~> 2.4"},
       {:ex_aws_s3, "~> 2.4"},
       {:sweet_xml, "~> 0.7"},
-      {:earmark, "~> 1.4"},
+      {:earmark, "1.4.46"},
       {:bbcode_pleroma, "~> 0.2.0"},
       {:argon2_elixir, "~> 3.1"},
       {:cors_plug, "~> 3.0"},
@@ -181,7 +181,7 @@ defmodule Pleroma.Mixfile do
       {:remote_ip, "~> 1.1.0"},
       {:captcha,
        git: "https://git.pleroma.social/pleroma/elixir-libraries/elixir-captcha.git",
-       ref: "90f6ce7672f70f56708792a98d98bd05176c9176"},
+       ref: "6630c42aaaab124e697b4e513190c89d8b64e410"},
       {:restarter, path: "./restarter"},
       {:majic,
        git: "https://akkoma.dev/AkkomaGang/majic.git",
@@ -201,7 +201,7 @@ defmodule Pleroma.Mixfile do
 
       ## dev & test
       {:ex_doc, "~> 0.30", only: :dev, runtime: false},
-      {:ex_machina, "~> 2.7", only: :test},
+      {:ex_machina, "~> 2.8", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:mock, "~> 0.3.8", only: :test},
       {:excoveralls, "0.16.1", only: :test},

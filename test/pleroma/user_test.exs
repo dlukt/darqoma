@@ -639,11 +639,12 @@ defmodule Pleroma.UserTest do
       changeset = User.register_changeset(%User{}, @full_user_data)
 
       assert changeset.valid?
-
       assert is_binary(changeset.changes[:password_hash])
-      assert is_binary(changeset.changes[:keys])
       assert changeset.changes[:ap_id] == User.ap_id(%User{nickname: @full_user_data.nickname})
-      assert is_binary(changeset.changes[:keys])
+      assert changeset.changes[:signing_key]
+      assert changeset.changes[:signing_key].valid?
+      assert is_binary(changeset.changes[:signing_key].changes.private_key)
+      assert is_binary(changeset.changes[:signing_key].changes.public_key)
       assert changeset.changes.follower_address == "#{changeset.changes.ap_id}/followers"
     end
 
@@ -814,7 +815,6 @@ defmodule Pleroma.UserTest do
       assert user == fetched_user
     end
 
-    @tag capture_log: true
     test "returns nil if no user could be fetched" do
       {:error, fetched_user} = User.get_or_fetch_by_nickname("nonexistant@social.heldscal.la")
       assert fetched_user == "not found nonexistant@social.heldscal.la"
@@ -871,7 +871,6 @@ defmodule Pleroma.UserTest do
       assert orig_user.nickname == "#{orig_user.id}.admin@mastodon.example.org"
     end
 
-    @tag capture_log: true
     test "it returns the old user if stale, but unfetchable" do
       a_week_ago = NaiveDateTime.add(NaiveDateTime.utc_now(), -604_800)
 
@@ -1665,7 +1664,6 @@ defmodule Pleroma.UserTest do
         name: "qqqqqqq",
         password_hash: "pdfk2$1b3n159001",
         keys: "RSA begin buplic key",
-        public_key: "--PRIVATE KEYE--",
         avatar: %{"a" => "b"},
         tags: ["qqqqq"],
         banner: %{"a" => "b"},
@@ -1704,8 +1702,6 @@ defmodule Pleroma.UserTest do
              email: nil,
              name: nil,
              password_hash: nil,
-             keys: "RSA begin buplic key",
-             public_key: "--PRIVATE KEYE--",
              avatar: %{},
              tags: [],
              last_refreshed_at: nil,
