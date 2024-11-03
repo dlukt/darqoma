@@ -153,6 +153,7 @@ defmodule Pleroma.User do
     field(:inbox, :string)
     field(:shared_inbox, :string)
     field(:outbox, :string, default: nil)
+    field(:last_outbox_fetch, :naive_datetime, default: nil)
     field(:last_active_at, :naive_datetime)
     field(:disclose_client, :boolean, default: true)
     field(:pinned_objects, :map, default: %{})
@@ -2769,4 +2770,10 @@ defmodule Pleroma.User do
 
   def accepts_direct_messages?(%User{accepts_direct_messages_from: :nobody}, _),
     do: false
+
+  def outbox_refreshed(user) do
+    user
+    |> cast(%{last_outbox_fetch: DateTime.utc_now()}, [:last_outbox_fetch])
+    |> update_and_set_cache()
+  end
 end

@@ -1858,18 +1858,30 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
 
   def enqueue_pin_fetches(_), do: nil
 
-  def enqueue_outbox_fetches(%{outbox: outbox_address}) do
-    # enqueue a task to fetch the outbox
-    Logger.debug("Refetching outbox #{outbox_address}")
+  def enqueue_outbox_fetches(
+        %{outbox: outbox_address, last_outbox_fetch: last_fetch, local: false} = user
+      ) do
+    if last_fetch.to_unix() > DateTime.utc_now().to_unix() - 60 * 1000 do
+      # enqueue a task to fetch the outbox
+      Logger.debug("Refetching outbox #{outbox_address}")
 
-    Pleroma.Workers.RemoteFetcherWorker.enqueue("fetch_outbox", %{
-      "id" => outbox_address
-    })
+      User.outbox_refreshed(user)
+
+      Pleroma.Workers.RemoteFetcherWorker.enqueue("fetch_outbox", %{
+        "id" => outbox_address
+      })
+    else
+      Logger.debug("Not refetching outbox (it was fetched <1 min ago)")
+    end
 
     :ok
   end
 
-  def enqueue_outbox_fetches(_), do: :error
+  def enqueue_outbox_fetches(%{local: true}), do: :ok
+
+  def enqueue_outbox_fetches(%{local: false} = user) do
+    # TODO: get outbox?
+  end
 
   def make_user_from_ap_id(ap_id, additional \\ []) do
     user = User.get_cached_by_ap_id(ap_id)

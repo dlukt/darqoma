@@ -216,7 +216,7 @@ defmodule Pleroma.Object.Fetcher do
       # Should we seriously keep this attributedTo thing?
       "actor" => data["actor"] || data["attributedTo"],
       "object" => data,
-      "_akkoma_fake" => true,
+      "_akkoma_fake" => true
     }
     |> Maps.put_if_present("to", data["to"])
     |> Maps.put_if_present("cc", data["cc"])
