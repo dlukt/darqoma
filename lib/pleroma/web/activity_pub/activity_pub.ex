@@ -1587,7 +1587,7 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
     actor_type = data["type"] || "Person"
 
     featured_address = data["featured"]
-    {:ok, pinned_objects} = fetch_and_prepare_outbox_from_ap_id(featured_address)
+    {:ok, pinned_objects} = fetch_and_prepare_collection_from_ap_id(featured_address)
     outbox_address = data["outbox"]
 
     # first, check that the owner is correct
@@ -1792,7 +1792,7 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
     end
   end
 
-  def activity_data_from_outbox_collection(%{
+  def activity_data_from_collection(%{
         "type" => "OrderedCollection",
         "first" => first
       }) do
@@ -1807,7 +1807,7 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
     end
   end
 
-  def activity_data_from_outbox_collection(
+  def activity_data_from_collection(
         %{
           "type" => type
         } = collection
@@ -1823,23 +1823,23 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
     end)
   end
 
-  def activity_data_from_outbox_collection(obj) do
-    Logger.error("Could not parse outbox collection #{inspect(obj)}")
+  def activity_data_from_collection(obj) do
+    Logger.error("Could not parse collection #{inspect(obj)}")
     %{}
   end
 
-  def fetch_and_prepare_outbox_from_ap_id(nil) do
+  def fetch_and_prepare_collection_from_ap_id(nil) do
     {:ok, %{}}
   end
 
-  def fetch_and_prepare_outbox_from_ap_id(ap_id) do
-    Logger.info("Fetching outbox #{ap_id}")
+  def fetch_and_prepare_collection_from_ap_id(ap_id) do
+    Logger.info("Fetching collection #{ap_id}")
 
     with {:ok, data} <- Fetcher.fetch_and_contain_remote_object_from_id(ap_id) do
-      {:ok, activity_data_from_outbox_collection(data)}
+      {:ok, activity_data_from_collection(data)}
     else
       e ->
-        Logger.error("Could not decode outbox collection at fetch #{ap_id}, #{inspect(e)}")
+        Logger.error("Could not decode collection at fetch #{ap_id}, #{inspect(e)}")
         {:ok, %{}}
     end
   end
