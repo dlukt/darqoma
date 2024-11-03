@@ -210,13 +210,15 @@ defmodule Pleroma.Object.Fetcher do
     Logger.error("Object rejected while fetching #{id} #{inspect(error)}")
   end
 
+  # if its already an activity, dont wrap
+  defp prepare_activity_params(%{"object" => _ } = data), do: data
+
   defp prepare_activity_params(data) do
     %{
       "type" => "Create",
       # Should we seriously keep this attributedTo thing?
       "actor" => data["actor"] || data["attributedTo"],
       "object" => data,
-      "_akkoma_fake" => true
     }
     |> Maps.put_if_present("to", data["to"])
     |> Maps.put_if_present("cc", data["cc"])
