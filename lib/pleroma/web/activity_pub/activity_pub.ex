@@ -1867,16 +1867,11 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
           0
         else
           last_fetch
-          |> DateTime.from_iso8601()
-          |> DateTime.to_unix()
         end,
-      now <- DateTime.utc_now().to_unix(),
-      # future => epoch stuff, let it pass
-      # >60 secs in past => ok
-      # otherwise in timeout
+      now <-
+        NaiveDateTime.utc_now(),
       {true} <-
-        {last_fetch > now ||
-           last_fetch < now - 60}
+        {last_fetch < NaiveDateTime.add(now, -60)}
     ) do
       # enqueue a task to fetch the outbox
       Logger.debug("Refetching outbox #{outbox_address}")
