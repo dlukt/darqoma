@@ -1862,7 +1862,14 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
         %{outbox: outbox_address, last_outbox_fetch: last_fetch, local: false} = user
       ) do
     with(
-      last_fetch <- last_fetch.to_unix(),
+      last_fetch <-
+        if last_fetch == nil do
+          0
+        else
+          last_fetch
+          |> DateTime.from_iso8601()
+          |> DateTime.to_unix()
+        end,
       now <- DateTime.utc_now().to_unix(),
       # future => epoch stuff, let it pass
       # >60 secs in past => ok

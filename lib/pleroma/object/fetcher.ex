@@ -211,14 +211,14 @@ defmodule Pleroma.Object.Fetcher do
   end
 
   # if its already an activity, dont wrap
-  defp prepare_activity_params(%{"object" => _ } = data), do: data
+  defp prepare_activity_params(%{"object" => _} = data), do: data
 
   defp prepare_activity_params(data) do
     %{
       "type" => "Create",
       # Should we seriously keep this attributedTo thing?
       "actor" => data["actor"] || data["attributedTo"],
-      "object" => data,
+      "object" => data
     }
     |> Maps.put_if_present("to", data["to"])
     |> Maps.put_if_present("cc", data["cc"])
