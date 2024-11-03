@@ -1861,7 +1861,16 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
   def enqueue_outbox_fetches(
         %{outbox: outbox_address, last_outbox_fetch: last_fetch, local: false} = user
       ) do
-    if last_fetch.to_unix() > DateTime.utc_now().to_unix() - 60 * 1000 do
+    with(
+      last_fetch <- last_fetch.to_unix(),
+      now <- DateTime.utc_now().to_unix(),
+      # future => epoch stuff, let it pass
+      # >60 secs in past => ok
+      # otherwise in timeout
+      {true} <-
+        {last_fetch > now ||
+           last_fetch < now - 60}
+    ) do
       # enqueue a task to fetch the outbox
       Logger.debug("Refetching outbox #{outbox_address}")
 
@@ -1870,8 +1879,11 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
       Pleroma.Workers.RemoteFetcherWorker.enqueue("fetch_outbox", %{
         "id" => outbox_address
       })
+
+      :ok
     else
-      Logger.debug("Not refetching outbox (it was fetched <1 min ago)")
+      _ ->
+        Logger.debug("Not refetching outbox (it was fetched <1 min ago)")
     end
 
     :ok
