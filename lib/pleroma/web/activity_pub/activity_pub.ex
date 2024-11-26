@@ -1858,21 +1858,19 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
 
   def enqueue_pin_fetches(_), do: nil
 
+  defp need_outbox_refresh?(last_fetch)
+
+  defp need_outbox_refresh?(nil), do: true
+
+  defp need_outbox_refresh?(%NaiveDateTime{} = last_fetch) do
+    NaiveDateTime.diff(NaiveDateTime.utc_now(), last_fetch) >
+      Config.get!([:activitypub, :outbox_refetch_cooldown])
+  end
+
   def enqueue_outbox_fetches(
         %{outbox: outbox_address, last_outbox_fetch: last_fetch, local: false} = user
       ) do
-    with(
-      last_fetch <-
-        if last_fetch == nil do
-          0
-        else
-          last_fetch
-        end,
-      now <-
-        NaiveDateTime.utc_now(),
-      {true} <-
-        {last_fetch < NaiveDateTime.add(now, -60)}
-    ) do
+    if need_outbox_refresh?(last_fetch) do
       # enqueue a task to fetch the outbox
       Logger.debug("Refetching outbox #{outbox_address}")
 
@@ -1884,8 +1882,7 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
 
       :ok
     else
-      _ ->
-        Logger.debug("Not refetching outbox (it was fetched <1 min ago)")
+      Logger.debug("Not refetching outbox (TTL not reached)")
     end
 
     :ok

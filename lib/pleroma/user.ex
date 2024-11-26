@@ -2774,7 +2774,7 @@ defmodule Pleroma.User do
     do: false
 
   def outbox_refreshed(%User{} = user) do
-    #now = NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second)
+    # now = NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second)
 
     user
     |> cast(%{last_outbox_fetch: NaiveDateTime.utc_now()}, [:last_outbox_fetch])
