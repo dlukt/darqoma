@@ -371,7 +371,8 @@ config :pleroma, :activitypub,
   note_replies_output_limit: 5,
   sign_object_fetches: true,
   authorized_fetch_mode: false,
-  max_collection_objects: 50
+  max_collection_objects: 50,
+  outbox_refetch_cooldown: 5 * 60
 
 config :pleroma, :streamer,
   workers: 3,
