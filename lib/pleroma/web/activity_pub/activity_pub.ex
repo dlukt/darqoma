@@ -1874,15 +1874,15 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
       # enqueue a task to fetch the outbox
       Logger.debug("Refetching outbox #{outbox_address}")
 
-      User.outbox_refreshed(user)
-
       Pleroma.Workers.RemoteFetcherWorker.enqueue("fetch_outbox", %{
         "id" => outbox_address
       })
 
+      User.outbox_refreshed(user)
+
       :ok
     else
-      Logger.debug("Not refetching outbox (TTL not reached)")
+      Logger.debug("Not refetching outbox (TTL not reached: #{last_fetch}, age #{NaiveDateTime.diff(NaiveDateTime.utc_now(), last_fetch)})")
     end
 
     :ok
@@ -1891,7 +1891,8 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
   def enqueue_outbox_fetches(%{local: true}), do: :ok
 
   def enqueue_outbox_fetches(%{local: false} = user) do
-    # TODO: get outbox?
+    make_user_from_ap_id(user.ap_id)
+    :ok
   end
 
   def make_user_from_ap_id(ap_id, additional \\ []) do
