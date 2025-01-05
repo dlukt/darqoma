@@ -15,7 +15,7 @@ defmodule Pleroma.Workers.RemoteFetcherWorker do
 
   def perform(%Job{args: %{"op" => "fetch_outbox", "id" => address}}) do
     with {:ok, outbox} <- ActivityPub.fetch_and_prepare_collection_from_ap_id(address) do
-      Enum.each(Enum.reverse(outbox), fn {ap_id, _} ->
+      Enum.each(outbox, fn {ap_id, _} ->
         if is_nil(Object.get_cached_by_ap_id(ap_id)) do
           Fetcher.fetch_object_from_id(ap_id, depth: 1)
         end
