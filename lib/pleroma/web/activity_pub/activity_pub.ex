@@ -1858,31 +1858,28 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
 
   def enqueue_pin_fetches(_), do: nil
 
-  defp need_outbox_refresh?(last_fetch)
+  @cachex Pleroma.Config.get([:cachex, :provider], Cachex)
+  @timer :backfetch_timer_cache
 
-  defp need_outbox_refresh?(nil), do: true
+  def enqueue_outbox_fetches(%{outbox: outbox_address, local: false}) do
+    case @cachex.get(@timer, outbox_address) do
+      {:ok, nil} ->
+        @cachex.put(
+          @timer,
+          outbox_address,
+          true,
+          ttl: Config.get!([:activitypub, :outbox_refetch_cooldown])
+        )
 
-  defp need_outbox_refresh?(%NaiveDateTime{} = last_fetch) do
-    NaiveDateTime.diff(NaiveDateTime.utc_now(), last_fetch) >
-      Config.get!([:activitypub, :outbox_refetch_cooldown])
-  end
+        # enqueue a task to fetch the outbox
+        Logger.debug("Refetching outbox #{outbox_address}")
 
-  def enqueue_outbox_fetches(
-        %{outbox: outbox_address, last_outbox_fetch: last_fetch, local: false} = user
-      ) do
-    if need_outbox_refresh?(last_fetch) do
-      # enqueue a task to fetch the outbox
-      Logger.debug("Refetching outbox #{outbox_address}")
+        Pleroma.Workers.RemoteFetcherWorker.enqueue("fetch_outbox", %{
+          "id" => outbox_address
+        })
 
-      Pleroma.Workers.RemoteFetcherWorker.enqueue("fetch_outbox", %{
-        "id" => outbox_address
-      })
-
-      User.outbox_refreshed(user)
-
-      :ok
-    else
-      Logger.debug("Not refetching outbox (TTL not reached: #{last_fetch}, age #{NaiveDateTime.diff(NaiveDateTime.utc_now(), last_fetch)})")
+      a ->
+        Logger.debug("Not refetching outbox (TTL not reached)")
     end
 
     :ok
