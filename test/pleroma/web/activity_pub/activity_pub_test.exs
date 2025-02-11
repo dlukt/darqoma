@@ -386,7 +386,7 @@ defmodule Pleroma.Web.ActivityPub.ActivityPubTest do
         }
     end)
 
-    {:ok, data} = ActivityPub.fetch_and_prepare_featured_from_ap_id(featured_url)
+    {:ok, data} = ActivityPub.fetch_and_prepare_collection_from_ap_id(featured_url)
     assert Map.has_key?(data, "http://inserted")
   end
 
@@ -420,7 +420,7 @@ defmodule Pleroma.Web.ActivityPub.ActivityPubTest do
         }
     end)
 
-    {:ok, %{}} = ActivityPub.fetch_and_prepare_featured_from_ap_id(featured_url)
+    {:ok, %{}} = ActivityPub.fetch_and_prepare_collection_from_ap_id(featured_url)
   end
 
   test "it fetches the appropriate tag-restricted posts" do
@@ -2664,7 +2664,7 @@ defmodule Pleroma.Web.ActivityPub.ActivityPubTest do
 
   test "pin_data_from_featured_collection will ignore unsupported values" do
     assert %{} ==
-             ActivityPub.pin_data_from_featured_collection(%{
+             ActivityPub.activity_data_from_collection(%{
                "type" => "CollectionThatIsNotRealAndCannotHurtMe",
                "first" => "https://social.example/users/alice/collections/featured?page=true"
              })

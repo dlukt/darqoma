@@ -372,7 +372,8 @@ config :pleroma, :activitypub,
   sign_object_fetches: true,
   authorized_fetch_mode: false,
   max_collection_objects: 50,
-  outbox_refetch_cooldown: 5 * 60
+  # 30 minutes
+  outbox_refetch_cooldown: 30 * 60
 
 config :pleroma, :streamer,
   workers: 3,

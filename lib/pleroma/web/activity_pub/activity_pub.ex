@@ -1862,24 +1862,28 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
   @timer :backfetch_timer_cache
 
   def enqueue_outbox_fetches(%{outbox: outbox_address, local: false}) do
-    case @cachex.get(@timer, outbox_address) do
-      {:ok, nil} ->
-        @cachex.put(
-          @timer,
-          outbox_address,
-          true,
-          ttl: Config.get!([:activitypub, :outbox_refetch_cooldown])
-        )
+    cooldn = Config.get!([:activitypub, :outbox_refetch_cooldown])
 
-        # enqueue a task to fetch the outbox
-        Logger.debug("Refetching outbox #{outbox_address}")
+    if cooldn != :infinity do
+      case @cachex.get(@timer, outbox_address) do
+        {:ok, nil} ->
+          @cachex.put(
+            @timer,
+            outbox_address,
+            true,
+            ttl: cooldn
+          )
 
-        Pleroma.Workers.RemoteFetcherWorker.enqueue("fetch_outbox", %{
-          "id" => outbox_address
-        })
+          # enqueue a task to fetch the outbox
+          Logger.debug("Refetching outbox #{outbox_address}")
 
-      a ->
-        Logger.debug("Not refetching outbox (TTL not reached)")
+          Pleroma.Workers.RemoteFetcherWorker.enqueue("fetch_outbox", %{
+            "id" => outbox_address
+          })
+
+        _ ->
+          Logger.debug("Not refetching outbox (TTL not reached)")
+      end
     end
 
     :ok
@@ -1888,7 +1892,7 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
   def enqueue_outbox_fetches(%{local: true}), do: :ok
 
   def enqueue_outbox_fetches(%{local: false} = user) do
-    make_user_from_ap_id(user.ap_id)
+    User.get_or_fetch_by_ap_id(user.ap_id)
     :ok
   end
 

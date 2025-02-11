@@ -3,7 +3,7 @@ defmodule Pleroma.Repo.Migrations.UsersAddOutboxes do
 
   def up do
     alter table(:users) do
-      add_if_not_exists(:outbox, :text)
+      add_if_not_exists(:outbox, :text, default: nil)
     end
   end
 
