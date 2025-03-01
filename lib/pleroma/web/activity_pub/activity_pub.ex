@@ -934,8 +934,6 @@ defmodule Pleroma.Web.ActivityPub.ActivityPub do
 
   # Essentially, either look for activities addressed to `recipients`, _OR_ ones
   # that reference a hashtag that the user follows
-  # Firstly, two fallbacks in case there's no hashtag constraint, or the user doesn't
-  # follow any
   defp restrict_recipients_or_hashtags(query, recipients, user, true) do
     followed_hashtag_ids = Ecto.assoc(user, :followed_hashtags) |> select([h], h.id)
 
