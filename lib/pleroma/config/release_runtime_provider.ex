@@ -49,7 +49,7 @@ defmodule Pleroma.Config.ReleaseRuntimeProvider do
           IO.ANSI.reset()
         ]
 
-        IO.puts(warning)
+        IO.puts(:stderr, warning)
         with_defaults
       end
 

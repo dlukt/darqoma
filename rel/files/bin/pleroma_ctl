@@ -139,25 +139,15 @@ else
 	SCRIPT=$(readlink -f "$0")
 	SCRIPTPATH=$(dirname "$SCRIPT")
 
-	FULL_ARGS="$*"
-
 	ACTION="$1"
-	if [ $# -gt 0 ]; then
-		shift
-	fi
-	echo "$1" | grep "^-" >/dev/null
-	if [ $? -eq 1 ]; then
-		SUBACTION="$1"
-		if [ $# -gt 0 ]; then
-			shift
-		fi
-	fi
+	SUBACTION="$2"
 
 	if [ "$ACTION" = "update" ]; then
+		shift
 		update "$@"
 	elif [ "$ACTION" = "migrate" ] || [ "$ACTION" = "rollback" ] || [ "$ACTION" = "create" ] || [ "$ACTION $SUBACTION" = "instance gen" ] || [ "$PLEROMA_CTL_RPC_DISABLED" = true ]; then
-		"$SCRIPTPATH"/pleroma eval 'Pleroma.ReleaseTasks.run("'"$FULL_ARGS"'")'
+		"$SCRIPTPATH"/pleroma eval 'Pleroma.ReleaseTasks.run(System.argv())' "$@"
 	else
-		"$SCRIPTPATH"/pleroma rpc 'Pleroma.ReleaseTasks.run("'"$FULL_ARGS"'")'
+		"$SCRIPTPATH"/pleroma rpc "Pleroma.ReleaseTasks.run($("$SCRIPTPATH"/pleroma eval 'IO.inspect(System.argv(), pretty: false, width: :infinity)' "$@" 2>/dev/null))"
 	fi
 fi

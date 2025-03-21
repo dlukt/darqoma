@@ -6,13 +6,13 @@ defmodule Pleroma.ReleaseTasks do
   @repo Pleroma.Repo
 
   def run(args) do
-    [task | args] = String.split(args)
+    [task | rest] = args
 
     case task do
-      "migrate" -> migrate(args)
+      "migrate" -> migrate(rest)
       "create" -> create()
-      "rollback" -> rollback(args)
-      task -> mix_task(task, args)
+      "rollback" -> rollback(rest)
+      task -> mix_task(task, rest)
     end
   end
 
