@@ -24,6 +24,14 @@ defmodule Pleroma.Web.StaticFE.StaticFEController do
          true <- Visibility.is_public?(activity.object),
          {_, true} <- {:visible?, Visibility.visible_for_user?(activity, _reading_user = nil)},
          %User{} = user <- User.get_by_ap_id(activity.object.data["actor"]) do
+      
+      url = case user.local do
+          # Workaround 1: Discord expects a /notice/#{activity} URL for fetching posts with AP signing on
+          # Workaround 2: Due to a Discord bug, this cannot be a relative URL
+          true -> url(~p[/notice/#{activity}])
+          _ -> activity.data["url"] || activity.data["external_url"] || activity.data["id"]
+      end
+          
       meta =
         Metadata.build_tags(%{
           activity_id: notice_id,
