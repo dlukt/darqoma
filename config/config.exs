@@ -775,6 +775,14 @@ config :pleroma, :frontends,
   available: %{
     "pleroma-fe" => %{
       "name" => "pleroma-fe",
+      "git" => "https://git.pleroma.social/pleroma/pleroma-fe/",
+      "build_url" =>
+        "https://git.pleroma.social/pleroma/pleroma-fe/-/jobs/artifacts/${ref}/download?job=build",
+      "ref" => "stable",
+      "build_dir" => "dist"
+    },
+    "akkoma-fe" => %{
+      "name" => "akkoma-fe",
       "git" => "https://akkoma.dev/AkkomaGang/pleroma-fe",
       "build_url" =>
         "https://akkoma-updates.s3-website.fr-par.scw.cloud/frontend/${ref}/akkoma-fe.zip",
