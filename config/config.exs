@@ -778,7 +778,7 @@ config :pleroma, :frontends,
       "git" => "https://git.pleroma.social/pleroma/pleroma-fe/",
       "build_url" =>
         "https://git.pleroma.social/pleroma/pleroma-fe/-/jobs/artifacts/${ref}/download?job=build",
-      "ref" => "stable",
+      "ref" => "develop",
       "build_dir" => "dist"
     },
     "akkoma-fe" => %{
