@@ -774,7 +774,7 @@ config :pleroma, :frontends,
   },
   available: %{
     "pleroma-fe-upstream" => %{
-      "name" => "pleroma-fe",
+      "name" => "pleroma-fe-upstream",
       "git" => "https://git.pleroma.social/pleroma/pleroma-fe/",
       "build_url" =>
         "https://git.pleroma.social/pleroma/pleroma-fe/-/jobs/artifacts/${ref}/download?job=build",
@@ -782,7 +782,7 @@ config :pleroma, :frontends,
       "build_dir" => "dist"
     },
     "pleroma-fe" => %{
-      "name" => "akkoma-fe",
+      "name" => "pleroma-fe",
       "git" => "https://akkoma.dev/AkkomaGang/pleroma-fe",
       "build_url" =>
         "https://akkoma-updates.s3-website.fr-par.scw.cloud/frontend/${ref}/akkoma-fe.zip",
