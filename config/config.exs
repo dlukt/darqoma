@@ -773,7 +773,7 @@ config :pleroma, :frontends,
     "enabled" => false
   },
   available: %{
-    "pleroma-fe" => %{
+    "pleroma-fe-upstream" => %{
       "name" => "pleroma-fe",
       "git" => "https://git.pleroma.social/pleroma/pleroma-fe/",
       "build_url" =>
@@ -781,7 +781,7 @@ config :pleroma, :frontends,
       "ref" => "develop",
       "build_dir" => "dist"
     },
-    "akkoma-fe" => %{
+    "pleroma-fe" => %{
       "name" => "akkoma-fe",
       "git" => "https://akkoma.dev/AkkomaGang/pleroma-fe",
       "build_url" =>
