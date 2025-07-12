@@ -21,9 +21,7 @@ services:
     env_file:
       - .env 
     volumes:
-      - type: bind
-        source: ./pgdata
-        target: /var/lib/postgresql/data
+      - akkoma_db_data:/var/lib/postgresql/data
 
   akkoma:
     image: akkoma:latest
@@ -60,3 +58,5 @@ services:
   #    - ./docker-resources/Caddyfile:/etc/caddy/Caddyfile
   #    - ./caddy-data:/data
   #    - ./caddy-config:/config
+volumes:
+  akkoma_db_data:
