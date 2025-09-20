@@ -69,6 +69,14 @@ defmodule Pleroma.HTTP do
         adapter_opts
       end
 
+    # Workaround for https://github.com/sneako/finch/issues/265
+    adapter_opts =
+      if body != nil && adapter_opts[:pools][:default][:protocols] != [:http2] do
+        put_in(adapter_opts, [:pools, :default, :protocols], [:http1])
+      else
+        adapter_opts
+      end
+
     options = put_in(options[:adapter], adapter_opts)
     params = options[:params] || []
     request = build_request(method, headers, options, url, body, params)
