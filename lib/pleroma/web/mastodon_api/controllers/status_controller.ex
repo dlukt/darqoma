@@ -401,6 +401,7 @@ defmodule Pleroma.Web.MastodonAPI.StatusController do
       users =
         User
         |> Ecto.Query.where([u], u.ap_id in ^likes)
+        |> Ecto.Query.order_by([u], fragment("array_position(?, ?)", ^likes, u.ap_id))
         |> Repo.all()
         |> Enum.filter(&(not User.blocks?(user, &1)))
 
@@ -433,6 +434,7 @@ defmodule Pleroma.Web.MastodonAPI.StatusController do
       users =
         User
         |> Ecto.Query.where([u], u.ap_id in ^announces)
+        |> Ecto.Query.order_by([u], fragment("array_position(?, ?)", ^announces, u.ap_id))
         |> Repo.all()
         |> Enum.filter(&(not User.blocks?(user, &1)))
 
