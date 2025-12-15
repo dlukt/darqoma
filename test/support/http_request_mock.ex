@@ -1567,14 +1567,6 @@ defmodule HttpRequestMock do
      }}
   end
 
-  def get("https://mastodon.example/.well-known/host-meta", _, _, _) do
-    {:ok,
-     %Tesla.Env{
-       status: 302,
-       headers: [{"location", "https://sub.mastodon.example/.well-known/host-meta"}]
-     }}
-  end
-
   def get("https://sub.mastodon.example/.well-known/host-meta", _, _, _) do
     {:ok,
      %Tesla.Env{
@@ -1587,11 +1579,15 @@ defmodule HttpRequestMock do
   end
 
   def get(
-        "https://sub.mastodon.example/.well-known/webfinger?resource=acct:a@mastodon.example",
+        url,
         _,
         _,
         _
-      ) do
+      )
+      when url in [
+             "https://sub.mastodon.example/.well-known/webfinger?resource=acct:a@mastodon.example",
+             "https://sub.mastodon.example/.well-known/webfinger?resource=acct:a@sub.mastodon.example"
+           ] do
     {:ok,
      %Tesla.Env{
        status: 200,
@@ -1602,6 +1598,22 @@ defmodule HttpRequestMock do
          |> String.replace("{{domain}}", "mastodon.example")
          |> String.replace("{{subdomain}}", "sub.mastodon.example"),
        headers: [{"content-type", "application/jrd+json"}]
+     }}
+  end
+
+  def get(
+        "https://mastodon.example/.well-known/webfinger?resource=acct:a@mastodon.example",
+        _,
+        _,
+        _
+      ) do
+    {:ok,
+     %Tesla.Env{
+       status: 302,
+       headers: [
+         {"location",
+          "https://sub.mastodon.example/.well-known/webfinger?resource=acct:a@mastodon.example"}
+       ]
      }}
   end
 
@@ -1650,11 +1662,15 @@ defmodule HttpRequestMock do
   end
 
   def get(
-        "https://sub.pleroma.example/.well-known/webfinger?resource=acct:a@pleroma.example",
+        url,
         _,
         _,
         _
-      ) do
+      )
+      when url in [
+             "https://sub.pleroma.example/.well-known/webfinger?resource=acct:a@pleroma.example",
+             "https://sub.pleroma.example/.well-known/webfinger?resource=acct:a@sub.pleroma.example"
+           ] do
     {:ok,
      %Tesla.Env{
        status: 200,

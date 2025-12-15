@@ -211,7 +211,12 @@ defmodule Pleroma.Web.WebFingerTest do
       assert {:error, {:webfinger_invalid, _, _}} = WebFinger.finger("meanie@bad.com")
     end
 
-    test "works for correctly set up split-domain instances" do
+    test "works for correctly set up split-domain instances implementing host-meta redirect" do
+      {:ok, _data} = WebFinger.finger("a@pleroma.example")
+      {:ok, _data} = WebFinger.finger("a@sub.pleroma.example")
+    end
+
+    test "works for correctly set up split-domain instances without host-meta redirect" do
       {:ok, _data} = WebFinger.finger("a@mastodon.example")
       {:ok, _data} = WebFinger.finger("a@sub.mastodon.example")
     end
