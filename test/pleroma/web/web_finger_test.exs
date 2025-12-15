@@ -76,7 +76,7 @@ defmodule Pleroma.Web.WebFingerTest do
       {:ok, _data} = WebFinger.finger(user)
     end
 
-    test "it work for AP-only user" do
+    test "it works for AP-only user" do
       user = "kpherox@mstdn.jp"
 
       {:ok, data} = WebFinger.finger(user)
@@ -184,24 +184,36 @@ defmodule Pleroma.Web.WebFingerTest do
              status: 200,
              body: File.read!("test/fixtures/tesla_mock/bad.com_host_meta")
            }}
+
+        %{url: "https://whitehouse.gov/.well-known/webfinger?resource=acct:trump@whitehouse.gov"} ->
+          {:ok, %Tesla.Env{status: 404}}
       end)
 
       {:error, _data} = WebFinger.finger("meanie@bad.com")
     end
-  end
 
-  test "prevents forgeries" do
-    Tesla.Mock.mock(fn
-      %{url: "https://bad.com/.well-known/webfinger?resource=acct:meanie@bad.com"} ->
-        fake_webfinger =
-          File.read!("test/fixtures/webfinger/imposter-webfinger.json") |> Jason.decode!()
+    test "prevents forgeries" do
+      Tesla.Mock.mock(fn
+        %{url: "https://bad.com/.well-known/webfinger?resource=acct:meanie@bad.com"} ->
+          fake_webfinger =
+            File.read!("test/fixtures/webfinger/imposter-webfinger.json") |> Jason.decode!()
 
-        Tesla.Mock.json(fake_webfinger)
+          Tesla.Mock.json(fake_webfinger)
 
-      %{url: "https://bad.com/.well-known/host-meta"} ->
-        {:ok, %Tesla.Env{status: 404}}
-    end)
+        %{url: url}
+        when url in [
+               "https://bad.com/.well-known/host-meta",
+               "https://notwhereitshouldbe.com/.well-known/webfinger?resource=acct:oopsie@notwhereitshouldbe.com"
+             ] ->
+          {:ok, %Tesla.Env{status: 404}}
+      end)
 
-    assert {:error, {:webfinger_invalid, _, _}} = WebFinger.finger("meanie@bad.com")
+      assert {:error, {:webfinger_invalid, _, _}} = WebFinger.finger("meanie@bad.com")
+    end
+
+    test "works for correctly set up split-domain instances" do
+      {:ok, _data} = WebFinger.finger("a@mastodon.example")
+      {:ok, _data} = WebFinger.finger("a@sub.mastodon.example")
+    end
   end
 end
