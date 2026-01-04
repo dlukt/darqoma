@@ -517,6 +517,7 @@ defmodule Mix.Tasks.Pleroma.DatabaseTest do
                ["announcements"],
                ["apps"],
                ["backups"],
+               ["bookmark_folders"],
                ["bookmarks"],
                ["config"],
                ["conversation_participation_recipient_ships"],

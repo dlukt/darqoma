@@ -92,7 +92,8 @@ defmodule Pleroma.Web.MastodonAPI.InstanceView do
         "akkoma:machine_translation"
       end,
       "custom_emoji_reactions",
-      "pleroma:get:main/ostatus"
+      "pleroma:get:main/ostatus",
+      "pleroma:bookmark_folders"
     ]
     |> Enum.filter(& &1)
   end

@@ -12,6 +12,7 @@ defmodule Pleroma.Web.MastodonAPI.StatusController do
 
   alias Pleroma.Activity
   alias Pleroma.Bookmark
+  alias Pleroma.BookmarkFolder
   alias Pleroma.Object
   alias Pleroma.Repo
   alias Pleroma.Config
@@ -364,11 +365,17 @@ defmodule Pleroma.Web.MastodonAPI.StatusController do
   end
 
   @doc "POST /api/v1/statuses/:id/bookmark"
-  def bookmark(%{assigns: %{user: user}} = conn, %{id: id}) do
+  def bookmark(%{assigns: %{user: user}, body_params: body_params} = conn, %{id: id}) do
     with %Activity{} = activity <- Activity.get_by_id_with_object(id),
          %User{} = user <- User.get_cached_by_nickname(user.nickname),
          true <- Visibility.visible_for_user?(activity, user),
-         {:ok, _bookmark} <- Bookmark.create(user.id, activity.id) do
+         folder_id <- Map.get(body_params, :folder_id, nil),
+         folder_id <-
+           if(folder_id && BookmarkFolder.belongs_to_user?(folder_id, user.id),
+             do: folder_id,
+             else: nil
+           ),
+         {:ok, _bookmark} <- Bookmark.create(user.id, activity.id, folder_id) do
       try_render(conn, "show.json", activity: activity, for: user, as: :activity)
     else
       none when none in [nil, false] ->
@@ -514,10 +521,11 @@ defmodule Pleroma.Web.MastodonAPI.StatusController do
   @doc "GET /api/v1/bookmarks"
   def bookmarks(%{assigns: %{user: user}} = conn, params) do
     user = User.get_cached_by_id(user.id)
+    folder_id = Map.get(params, :folder_id)
 
     bookmarks =
       user.id
-      |> Bookmark.for_user_query()
+      |> Bookmark.for_user_query(folder_id)
       |> Pleroma.Pagination.fetch_paginated(params)
 
     activities =

@@ -323,7 +323,8 @@ defmodule Pleroma.Web.MastodonAPI.StatusViewTest do
         thread_muted: false,
         emoji_reactions: [],
         parent_visible: false,
-        pinned_at: nil
+        pinned_at: nil,
+        bookmark_folder: nil
       },
       akkoma: %{
         source: HTML.filter_tags(object_data["content"]),

@@ -123,7 +123,8 @@ defmodule Pleroma.Web.ApiSpec do
               "Retrieve status information",
               "Scheduled statuses",
               "Search",
-              "Status actions"
+              "Status actions",
+              "Bookmark folders"
             ]
           },
           %{"name" => "Miscellaneous", "tags" => ["Emoji packs", "Reports", "Suggestions"]}

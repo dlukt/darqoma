@@ -10,6 +10,7 @@ defmodule Pleroma.Bookmark do
 
   alias Pleroma.Activity
   alias Pleroma.Bookmark
+  alias Pleroma.BookmarkFolder
   alias Pleroma.Repo
   alias Pleroma.User
 
@@ -18,31 +19,49 @@ defmodule Pleroma.Bookmark do
   schema "bookmarks" do
     belongs_to(:user, User, type: FlakeId.Ecto.CompatType)
     belongs_to(:activity, Activity, type: FlakeId.Ecto.CompatType)
+    belongs_to(:folder, BookmarkFolder, type: FlakeId.Ecto.CompatType)
 
     timestamps()
   end
 
-  @spec create(FlakeId.Ecto.CompatType.t(), FlakeId.Ecto.CompatType.t()) ::
+  @spec create(
+          FlakeId.Ecto.CompatType.t(),
+          FlakeId.Ecto.CompatType.t(),
+          FlakeId.Ecto.CompatType.t() | nil
+        ) ::
           {:ok, Bookmark.t()} | {:error, Changeset.t()}
-  def create(user_id, activity_id) do
+  def create(user_id, activity_id, folder_id \\ nil) do
     attrs = %{
       user_id: user_id,
-      activity_id: activity_id
+      activity_id: activity_id,
+      folder_id: folder_id
     }
 
     %Bookmark{}
-    |> cast(attrs, [:user_id, :activity_id])
+    |> cast(attrs, [:user_id, :activity_id, :folder_id])
     |> validate_required([:user_id, :activity_id])
     |> unique_constraint(:activity_id, name: :bookmarks_user_id_activity_id_index)
-    |> Repo.insert()
+    |> Repo.insert(
+      on_conflict: [set: [folder_id: folder_id]],
+      conflict_target: [:user_id, :activity_id]
+    )
   end
 
-  @spec for_user_query(FlakeId.Ecto.CompatType.t()) :: Ecto.Query.t()
-  def for_user_query(user_id) do
+  @spec for_user_query(FlakeId.Ecto.CompatType.t(), FlakeId.Ecto.CompatType.t() | nil) ::
+          Ecto.Query.t()
+  def for_user_query(user_id, folder_id \\ nil) do
     Bookmark
     |> where(user_id: ^user_id)
+    |> maybe_filter_by_folder(folder_id)
     |> join(:inner, [b], activity in assoc(b, :activity))
     |> preload([b, a], activity: a)
+  end
+
+  defp maybe_filter_by_folder(query, nil), do: query
+
+  defp maybe_filter_by_folder(query, folder_id) do
+    query
+    |> where(folder_id: ^folder_id)
   end
 
   def get(user_id, activity_id) do
@@ -63,5 +82,12 @@ defmodule Pleroma.Bookmark do
       |> Repo.delete_all()
 
     if cnt >= 1, do: :ok, else: {:error, :not_found}
+  end
+
+  def set_folder(bookmark, folder_id) do
+    bookmark
+    |> cast(%{folder_id: folder_id}, [:folder_id])
+    |> validate_required([:folder_id])
+    |> Repo.update()
   end
 end
