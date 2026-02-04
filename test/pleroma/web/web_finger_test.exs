@@ -184,9 +184,6 @@ defmodule Pleroma.Web.WebFingerTest do
              status: 200,
              body: File.read!("test/fixtures/tesla_mock/bad.com_host_meta")
            }}
-
-        %{url: "https://whitehouse.gov/.well-known/webfinger?resource=acct:trump@whitehouse.gov"} ->
-          {:ok, %Tesla.Env{status: 404}}
       end)
 
       {:error, _data} = WebFinger.finger("meanie@bad.com")
