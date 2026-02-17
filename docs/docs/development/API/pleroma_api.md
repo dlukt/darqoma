@@ -278,9 +278,7 @@ See [Admin-API](admin_api.md)
         "id": "9umDrYheeY451cQnEe",
         "name": "Read later",
         "emoji": "🕓",
-        "source": {
-          "emoji": "🕓"
-        }
+        "emoji_url": null
     }
 ]
 ```

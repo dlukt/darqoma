@@ -14,7 +14,7 @@ defmodule Pleroma.BookmarkFolder do
   alias Pleroma.User
 
   @type t :: %__MODULE__{}
-  @primary_key {:id, FlakeId.Ecto.CompatType, autogenerate: true}
+  @primary_key {:id, FlakeId.Ecto.Type, autogenerate: true}
 
   schema "bookmark_folders" do
     field(:name, :string)
@@ -61,12 +61,12 @@ defmodule Pleroma.BookmarkFolder do
 
   defp fix_emoji(changeset) do
     with {:emoji_field, emoji} when is_binary(emoji) <-
-           {:emoji_field, get_field(changeset, :emoji)},
-         {:fixed_emoji, emoji} <-
-           {:fixed_emoji,
-            emoji
-            |> Pleroma.Emoji.fully_qualify_emoji()
-            |> Pleroma.Emoji.maybe_quote()} do
+           {:emoji_field, get_field(changeset, :emoji)} do
+      emoji =
+        emoji
+        |> Pleroma.Emoji.fully_qualify_emoji()
+        |> Pleroma.Emoji.maybe_quote()
+
       put_change(changeset, :emoji, emoji)
     else
       {:emoji_field, _} -> changeset
@@ -88,7 +88,7 @@ defmodule Pleroma.BookmarkFolder do
   end
 
   defp valid_local_custom_emoji?(emoji) do
-    with %{file: _path} <- Emoji.get(emoji) do
+    with %Emoji{} <- Emoji.get(emoji) do
       true
     else
       _ -> false

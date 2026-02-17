@@ -166,12 +166,7 @@ defmodule Pleroma.Web.MastodonAPI.StatusView do
 
     bookmark = Activity.get_bookmark(reblogged_parent_activity, opts[:for])
 
-    bookmark_folder =
-      if bookmark != nil do
-        bookmark.folder_id
-      else
-        nil
-      end
+    bookmark_folder = bookmark && bookmark.folder_id
 
     mentions =
       activity.recipients
@@ -258,12 +253,7 @@ defmodule Pleroma.Web.MastodonAPI.StatusView do
 
       bookmark = Activity.get_bookmark(activity, opts[:for])
 
-      bookmark_folder =
-        if bookmark != nil do
-          bookmark.folder_id
-        else
-          nil
-        end
+      bookmark_folder = bookmark && bookmark.folder_id
 
       client_posted_this_activity = opts[:for] && user.id == opts[:for].id
 

@@ -48,7 +48,7 @@ Has these additional fields under the `pleroma` object:
   Further info about all reacting users at once, can be found using the `/statuses/:id/reactions` endpoint.
 - `parent_visible`: If the parent of this post is visible to the user or not.
 - `pinned_at`: a datetime (iso8601) when status was pinned, `null` otherwise.
-- `bookmark_folder`: the ID of the folder bookmark is stored within (if any).
+- `bookmark_folder`: the ID of the folder bookmark is stored within, `null` if not associated with a folder.
 
 The `GET /api/v1/statuses/:id/source` endpoint additionally has the following attributes:
 
@@ -79,7 +79,9 @@ Akkoma does not process remote images and therefore cannot include fields such a
 
 The `GET /api/v1/bookmarks` endpoint accepts optional parameter `folder_id` for bookmark folder ID.
 
-The `POST /api/v1/statuses/:id/bookmark` endpoint accepts optional parameter `folder_id` for bookmark folder ID.
+
+The `POST /api/v1/statuses/:id/bookmark` endpoint accepts optional parameter `folder_id` for bookmark folder ID. Bookmarking an already bookmarked post will update the folder association, or remove it if `folder_id` is omitted or null.
+
 
 ## Accounts
 
