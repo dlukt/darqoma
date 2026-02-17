@@ -26,7 +26,7 @@ defmodule Pleroma.Web.PleromaAPI.BookmarkFolderView do
 
   defp get_emoji(nil), do: {nil, nil}
 
-  defp get_emoj>i(emoji) do
+  defp get_emoji(emoji) do
     if Emoji.is_unicode_emoji?(emoji) do
       {emoji, nil}
     else

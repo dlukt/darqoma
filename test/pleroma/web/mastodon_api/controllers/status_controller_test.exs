@@ -1817,7 +1817,7 @@ defmodule Pleroma.Web.MastodonAPI.StatusControllerTest do
 
     folder_bookmarks_uri = "/api/v1/bookmarks?folder_id=#{folder.id}"
 
-    {:ok, activity1} = CommonAPI.post(author, %{status: "heweoo?"})
+    {:ok, %{id: activity_id} = activity1} = CommonAPI.post(author, %{status: "heweoo?"})
     {:ok, activity2} = CommonAPI.post(author, %{status: "heweoo!"})
 
     # Add bookmark with a folder
@@ -1843,7 +1843,7 @@ defmodule Pleroma.Web.MastodonAPI.StatusControllerTest do
       get(conn, folder_bookmarks_uri)
       |> json_response_and_validate_schema(200)
 
-    assert [%{"id" => ^activity1.id}] = bookmarks
+    assert [%{"id" => ^activity_id}] = bookmarks
 
     # Update folder for existing bookmark
     response =
