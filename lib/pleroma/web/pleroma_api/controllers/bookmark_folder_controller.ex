@@ -7,6 +7,7 @@ defmodule Pleroma.Web.PleromaAPI.BookmarkFolderController do
 
   alias Pleroma.BookmarkFolder
   alias Pleroma.Web.Plugs.OAuthScopesPlug
+  alias Pleroma.Web.Plugs.RateLimiter
 
   plug(Pleroma.Web.ApiSpec.CastAndValidate)
 
@@ -16,6 +17,8 @@ defmodule Pleroma.Web.PleromaAPI.BookmarkFolderController do
     OAuthScopesPlug,
     %{scopes: ["write:bookmarks"]} when action in [:create, :update, :delete]
   )
+
+  plug(RateLimiter, [name: :bookmark_folders_actions] when action in [:create, :update, :delete])
 
   defdelegate open_api_operation(action), to: Pleroma.Web.ApiSpec.PleromaBookmarkFolderOperation
 
