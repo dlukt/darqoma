@@ -1843,7 +1843,7 @@ defmodule Pleroma.Web.MastodonAPI.StatusControllerTest do
       get(conn, folder_bookmarks_uri)
       |> json_response_and_validate_schema(200)
 
-    assert length(bookmarks) == 1
+    assert [%{"id" => ^activity1.id}] = bookmarks
 
     # Update folder for existing bookmark
     response =
