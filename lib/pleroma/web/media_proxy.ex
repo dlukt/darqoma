@@ -56,11 +56,16 @@ defmodule Pleroma.Web.MediaProxy do
     not local?(url) and not whitelisted?(url) and not blocked?(url) and http_scheme?(url)
   end
 
+  @spec preview_url_proxiable?(String.t()) :: boolean()
+  def preview_url_proxiable?(url) do
+    not preview_whitelisted?(url) and not blocked?(url) and http_scheme?(url)
+  end
+
   def preview_url(url, preview_params \\ [])
   def preview_url("//" <> _ = url, pparams), do: preview_url("https:" <> url, pparams)
 
   def preview_url(url, preview_params) do
-    if preview_enabled?() and url_proxiable?(url) do
+    if preview_enabled?() and preview_url_proxiable?(url) do
       encode_preview_url(url, preview_params)
     else
       url(url)
@@ -84,6 +89,17 @@ defmodule Pleroma.Web.MediaProxy do
       [:media_proxy, :whitelist]
       |> Config.get([])
       |> Kernel.++(["#{Upload.base_url()}"])
+      |> Enum.map(&maybe_get_domain_from_url/1)
+
+    domain in mediaproxy_whitelist_domains
+  end
+
+  def preview_whitelisted?(url) do
+    %{host: domain} = URI.parse(url)
+
+    mediaproxy_whitelist_domains =
+      [:media_proxy, :whitelist]
+      |> Config.get([])
       |> Enum.map(&maybe_get_domain_from_url/1)
 
     domain in mediaproxy_whitelist_domains
