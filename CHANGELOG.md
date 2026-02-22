@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - it is no longer possible to reference posts one cannot access when reporting another user
 
 ### Changed
+- media proxy preview is now thumbnailing local content
 
 
 ## 2025.12
