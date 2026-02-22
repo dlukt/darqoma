@@ -37,6 +37,13 @@ defmodule Pleroma.Web.MediaProxyTest do
       assert MediaProxy.url(local_root) == local_root
     end
 
+    test "preview doesn't ignores local url" do
+      local_url = Endpoint.url() <> "/hello"
+      local_root = Endpoint.url()
+      assert MediaProxy.preview_url(local_url, static: true) != local_url
+      assert MediaProxy.preview_url(local_root, static: true) != local_root
+    end
+
     test "ignores data url" do
       assert MediaProxy.url("data:image/png;base64,") == "data:image/png;base64,"
     end
