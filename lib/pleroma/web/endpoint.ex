@@ -28,9 +28,9 @@ defmodule Pleroma.Web.Endpoint do
     from: :pleroma,
     only: ["emoji", "images"],
     gzip: true,
-    cache_control_for_etags: "public, max-age=1209600",
+    cache_control_for_etags: "public, max-age=1209600, immutable",
     headers: %{
-      "cache-control" => "public, max-age=1209600"
+      "cache-control" => "public, max-age=1209600, immutable"
     }
   )
 
