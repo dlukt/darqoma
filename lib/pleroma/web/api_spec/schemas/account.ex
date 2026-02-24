@@ -123,7 +123,15 @@ defmodule Pleroma.Web.ApiSpec.Schemas.Account do
             }
           },
           status_ttl_days: %Schema{type: :integer, nullable: true},
-          permit_followback: %Schema{type: :boolean}
+          permit_followback: %Schema{type: :boolean},
+          media: %Schema{
+            type: :object,
+            nullable: false,
+            properties: %{
+              avatar_preview: %Schema{type: :string, format: :uri},
+              header_preview: %Schema{type: :string, format: :uri}
+            }
+          }
         }
       },
       source: %Schema{
@@ -226,7 +234,11 @@ defmodule Pleroma.Web.ApiSpec.Schemas.Account do
             }
         },
         "status_ttl_days" => nil,
-        "permit_followback" => true
+        "permit_followback" => true,
+        "media" => %{
+          "avatar_preview" => "https://mypleroma.com/proxy/preview/salthash/b64/avatar.jpg.webp",
+          "header_preview" => "https://mypleroma.com/proxy/preview/salthash/b64/avatar.jpg.webp"
+        }
       },
       "source" => %{
         "fields" => [],

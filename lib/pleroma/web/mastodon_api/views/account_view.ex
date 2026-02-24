@@ -216,8 +216,10 @@ defmodule Pleroma.Web.MastodonAPI.AccountView do
 
     avatar = User.avatar_url(user) |> MediaProxy.url()
     avatar_static = User.avatar_url(user) |> MediaProxy.preview_url(static: true)
+    avatar_preview = User.avatar_url(user) |> MediaProxy.preview_url()
     header = User.banner_url(user) |> MediaProxy.url()
     header_static = User.banner_url(user) |> MediaProxy.preview_url(static: true)
+    header_preview = User.banner_url(user) |> MediaProxy.preview_url()
 
     following_count =
       if !user.hide_follows_count or !user.hide_follows or opts[:for] == user,
@@ -305,7 +307,11 @@ defmodule Pleroma.Web.MastodonAPI.AccountView do
       akkoma: %{
         instance: render("instance.json", %{instance: instance}),
         status_ttl_days: user.status_ttl_days,
-        permit_followback: user.permit_followback
+        permit_followback: user.permit_followback,
+        media: %{
+          avatar_preview: avatar_preview,
+          header_preview: header_preview
+        }
       },
       # Pleroma extensions
       # Note: it's insecure to output :email but fully-qualified nickname may serve as safe stub
