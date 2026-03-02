@@ -26,7 +26,7 @@ defmodule Pleroma.Web.Endpoint do
     Pleroma.Web.Plugs.InstanceStatic,
     at: "/",
     from: :pleroma,
-    only: ["emoji", "images"],
+    only: ["emoji", "images", "favicon.png"],
     gzip: true,
     cache_control_for_etags: "public, max-age=1209600, immutable",
     headers: %{
