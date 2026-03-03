@@ -34,21 +34,21 @@ defmodule Pleroma.Web.Endpoint do
     }
   )
 
-  plug(Pleroma.Web.Plugs.InstanceStatic,
-    at: "/",
-    gzip: true,
-    cache_control_for_etags: @static_cache_control,
-    headers: %{
-      "cache-control" => @static_cache_control
-    }
-  )
-
   plug(Pleroma.Web.Plugs.Favicon,
     at: "/",
     only: ["favicon.png"],
     cache_control_for_etags: "public, max=age=86400, immutable",
     headers: %{
       "cache-control" => "public, max=age=86400, immutable"
+    }
+  )
+
+  plug(Pleroma.Web.Plugs.InstanceStatic,
+    at: "/",
+    gzip: true,
+    cache_control_for_etags: @static_cache_control,
+    headers: %{
+      "cache-control" => @static_cache_control
     }
   )
 
