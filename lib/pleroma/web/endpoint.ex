@@ -26,7 +26,7 @@ defmodule Pleroma.Web.Endpoint do
     Pleroma.Web.Plugs.InstanceStatic,
     at: "/",
     from: :pleroma,
-    only: ["emoji", "images", "favicon.png"],
+    only: ["emoji", "images"],
     gzip: true,
     cache_control_for_etags: "public, max-age=1209600, immutable",
     headers: %{
@@ -40,6 +40,15 @@ defmodule Pleroma.Web.Endpoint do
     cache_control_for_etags: @static_cache_control,
     headers: %{
       "cache-control" => @static_cache_control
+    }
+  )
+
+  plug(Pleroma.Web.Plugs.Favicon,
+    at: "/",
+    only: ["favicon.png"],
+    cache_control_for_etags: "public, max=age=86400, immutable",
+    headers: %{
+      "cache-control" => "public, max=age=86400, immutable"
     }
   )
 
