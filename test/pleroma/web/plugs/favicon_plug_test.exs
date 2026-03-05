@@ -5,8 +5,6 @@
 defmodule Pleroma.Web.Plugs.FaviconPlugTest do
   use Pleroma.Web.ConnCase
 
-  import ExUnit.CaptureLog
-
   @dir "test/tmp/favicon_static"
 
   setup do
