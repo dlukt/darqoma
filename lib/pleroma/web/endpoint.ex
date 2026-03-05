@@ -34,7 +34,7 @@ defmodule Pleroma.Web.Endpoint do
     }
   )
 
-  plug(Pleroma.Web.Plugs.Favicon,
+  plug(Pleroma.Web.Plugs.FaviconPlug,
     at: "/",
     only: ["favicon.png"],
     cache_control_for_etags: "public, max=age=86400, immutable",
