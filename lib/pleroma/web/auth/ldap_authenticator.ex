@@ -35,6 +35,17 @@ defmodule Pleroma.Web.Auth.LDAPAuthenticator do
     end
   end
 
+  def verify_credentials(%User{password_hash: nil} = user, password) do
+    case ldap_user(user.nickname, password) do
+      %User{} -> {:ok, user}
+      error -> error
+    end
+  end
+
+  def verify_credentials(%User{} = user, password) do
+    @base.verify_credentials(user, password)
+  end
+
   defp ldap_user(name, password) do
     ldap = Pleroma.Config.get(:ldap, [])
     host = Keyword.get(ldap, :host, "localhost")

@@ -16,6 +16,9 @@ defmodule Pleroma.Web.Auth.WrapperAuthenticator do
   def get_user(plug), do: implementation().get_user(plug)
 
   @impl true
+  def verify_credentials(user, password), do: implementation().verify_credentials(user, password)
+
+  @impl true
   def create_from_registration(plug, registration),
     do: implementation().create_from_registration(plug, registration)
 

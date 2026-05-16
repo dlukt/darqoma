@@ -23,6 +23,14 @@ defmodule Pleroma.Web.Auth.PleromaAuthenticator do
     end
   end
 
+  def verify_credentials(%User{} = user, password) do
+    if Pleroma.Password.checkpw(password, user.password_hash) do
+      {:ok, user}
+    else
+      {:error, :invalid_password}
+    end
+  end
+
   @doc """
   Gets or creates Pleroma.Registration record from Ueberauth assigns.
   Note: some strategies (like `keycloak`) might need extra configuration to fill `uid` from callback response —
