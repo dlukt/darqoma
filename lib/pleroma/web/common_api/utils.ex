@@ -359,7 +359,8 @@ defmodule Pleroma.Web.CommonAPI.Utils do
   @spec confirm_current_password(User.t(), String.t()) :: {:ok, User.t()} | {:error, String.t()}
   def confirm_current_password(user, password) do
     with %User{local: true} = db_user <- User.get_cached_by_id(user.id),
-         true <- Pleroma.Password.checkpw(password, db_user.password_hash) do
+         {:ok, _} <-
+           Pleroma.Web.Auth.WrapperAuthenticator.verify_credentials(db_user, password) do
       {:ok, db_user}
     else
       _ -> {:error, dgettext("errors", "Invalid password.")}
