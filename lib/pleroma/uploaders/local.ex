@@ -12,24 +12,28 @@ defmodule Pleroma.Uploaders.Local do
 
   @impl true
   def put_file(upload) do
-    {local_path, file} =
-      case Enum.reverse(Path.split(upload.path)) do
-        [file] ->
-          {upload_path(), file}
+    if String.contains?(upload.path, "..") or Path.type(upload.path) == :absolute do
+      {:error, "invalid file path"}
+    else
+      {local_path, file} =
+        case Enum.reverse(Path.split(upload.path)) do
+          [file] ->
+            {upload_path(), file}
 
-        [file | folders] ->
-          path = Path.join([upload_path()] ++ Enum.reverse(folders))
-          File.mkdir_p!(path)
-          {path, file}
+          [file | folders] ->
+            path = Path.join([upload_path()] ++ Enum.reverse(folders))
+            File.mkdir_p!(path)
+            {path, file}
+        end
+
+      result_file = Path.join(local_path, file)
+
+      if not File.exists?(result_file) do
+        File.cp!(upload.tempfile, result_file)
       end
 
-    result_file = Path.join(local_path, file)
-
-    if not File.exists?(result_file) do
-      File.cp!(upload.tempfile, result_file)
+      :ok
     end
-
-    :ok
   end
 
   def upload_path do
@@ -38,12 +42,16 @@ defmodule Pleroma.Uploaders.Local do
 
   @impl true
   def delete_file(path) do
-    upload_path()
-    |> Path.join(path)
-    |> File.rm()
-    |> case do
-      :ok -> :ok
-      {:error, posix_error} -> {:error, to_string(posix_error)}
+    if String.contains?(path, "..") or Path.type(path) == :absolute do
+      {:error, "invalid file path"}
+    else
+      upload_path()
+      |> Path.join(path)
+      |> File.rm()
+      |> case do
+        :ok -> :ok
+        {:error, posix_error} -> {:error, to_string(posix_error)}
+      end
     end
   end
 end

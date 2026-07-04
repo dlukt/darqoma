@@ -29,6 +29,34 @@ defmodule Pleroma.Uploaders.LocalTest do
       assert Path.join([Local.upload_path(), file_path])
              |> File.exists?()
     end
+
+    test "returns error when path has traversal" do
+      File.cp!("test/fixtures/image.jpg", "test/fixtures/image_tmp.jpg")
+      file_path = "../../../tmp/image.jpg"
+
+      file = %Pleroma.Upload{
+        name: "image.jpg",
+        content_type: "image/jpeg",
+        path: file_path,
+        tempfile: Path.absname("test/fixtures/image_tmp.jpg")
+      }
+
+      assert Local.put_file(file) == {:error, "invalid file path"}
+    end
+
+    test "returns error when path is absolute" do
+      File.cp!("test/fixtures/image.jpg", "test/fixtures/image_tmp.jpg")
+      file_path = "/tmp/image.jpg"
+
+      file = %Pleroma.Upload{
+        name: "image.jpg",
+        content_type: "image/jpeg",
+        path: file_path,
+        tempfile: Path.absname("test/fixtures/image_tmp.jpg")
+      }
+
+      assert Local.put_file(file) == {:error, "invalid file path"}
+    end
   end
 
   describe "delete_file/1" do
@@ -50,6 +78,14 @@ defmodule Pleroma.Uploaders.LocalTest do
       Local.delete_file(file_path)
 
       refute File.exists?(local_path)
+    end
+
+    test "returns error when path has traversal" do
+      assert Local.delete_file("../../../tmp/image.jpg") == {:error, "invalid file path"}
+    end
+
+    test "returns error when path is absolute" do
+      assert Local.delete_file("/tmp/image.jpg") == {:error, "invalid file path"}
     end
   end
 end
