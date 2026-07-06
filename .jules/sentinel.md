@@ -7,3 +7,7 @@
 **Vulnerability:** Path traversal in `Pleroma.Uploaders.Local` allowing arbitrary file writes and deletes outside the upload directory via `..` in upload paths.
 **Learning:** Upload backends must sanitize the target paths they construct, as `Path.join` with untrusted input containing `..` will resolve to paths outside the intended directory.
 **Prevention:** Validate that the provided file path does not contain `..` or use `Path.expand/1` and verify it starts with the expected base directory.
+## 2024-05-24 - [Code.eval_string Arbitrary Code Execution]
+**Vulnerability:** Found arbitrary code execution vulnerability in `lib/pleroma/config_db.ex` through the use of `Code.eval_string/1` to dynamically parse strings and regex from user configurations.
+**Learning:** `Code.eval_string/1` allows malicious input to execute arbitrary commands or code, completely bypassing application constraints. String interpolation inside `Code.eval_string` exposes critical paths (e.g. `System.cmd` execution).
+**Prevention:** Avoid `Code.eval_string` when parsing input from untrusted sources or dynamic configurations. Use safe equivalents like `Regex.compile!` for compiling regex patterns or `Code.string_to_quoted` with restricted AST evaluation for Elixir terms.
