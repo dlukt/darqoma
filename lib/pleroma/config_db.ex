@@ -328,13 +328,9 @@ defmodule Pleroma.ConfigDB do
     pattern =
       ~r/^~r(?'delimiter'[\/|"'([{<]{1})(?'pattern'.+)[\/|"')\]}>]{1}(?'modifier'[uismxfU]*)/u
 
-    delimiters = ["/", "|", "\"", "'", {"(", ")"}, {"[", "]"}, {"{", "}"}, {"<", ">"}]
-
-    with %{"modifier" => modifier, "pattern" => pattern, "delimiter" => regex_delimiter} <-
-           Regex.named_captures(pattern, regex),
-         {:ok, {leading, closing}} <- find_valid_delimiter(delimiters, pattern, regex_delimiter),
-         {result, _} <- Code.eval_string("~r#{leading}#{pattern}#{closing}#{modifier}") do
-      result
+    with %{"modifier" => modifier, "pattern" => regex_pattern} <-
+           Regex.named_captures(pattern, regex) do
+      Regex.compile!(regex_pattern, modifier)
     end
   end
 
@@ -363,27 +359,6 @@ defmodule Pleroma.ConfigDB do
 
       {:ok, ip} ->
         ip
-    end
-  end
-
-  defp find_valid_delimiter([], _string, _) do
-    raise(ArgumentError, message: "valid delimiter for Regex expression not found")
-  end
-
-  defp find_valid_delimiter([{leading, closing} = delimiter | others], pattern, regex_delimiter)
-       when is_tuple(delimiter) do
-    if String.contains?(pattern, closing) do
-      find_valid_delimiter(others, pattern, regex_delimiter)
-    else
-      {:ok, {leading, closing}}
-    end
-  end
-
-  defp find_valid_delimiter([delimiter | others], pattern, regex_delimiter) do
-    if String.contains?(pattern, delimiter) do
-      find_valid_delimiter(others, pattern, regex_delimiter)
-    else
-      {:ok, {delimiter, delimiter}}
     end
   end
 
