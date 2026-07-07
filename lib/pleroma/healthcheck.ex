@@ -40,9 +40,9 @@ defmodule Pleroma.Healthcheck do
     database = Pleroma.Config.get([Repo, :database])
 
     query =
-      "select state, count(pid) from pg_stat_activity where datname = '#{database}' group by state;"
+      "select state, count(pid) from pg_stat_activity where datname = $1 group by state;"
 
-    result = Repo.query!(query)
+    result = Repo.query!(query, [database])
     pool_size = Pleroma.Config.get([Repo, :pool_size])
 
     db_info =
