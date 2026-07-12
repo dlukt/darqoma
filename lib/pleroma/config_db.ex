@@ -276,13 +276,32 @@ defmodule Pleroma.ConfigDB do
 
   def to_json_types(entity) when is_atom(entity), do: inspect(entity)
 
+  defp safe_eval(string) do
+    case Code.string_to_quoted(string) do
+      {:ok, ast} ->
+        if safe_ast?(ast) do
+          {result, _} = Code.eval_quoted(ast)
+          result
+        else
+          string
+        end
+      _ -> string
+    end
+  end
+
+  defp safe_ast?(ast) when is_atom(ast) or is_number(ast) or is_binary(ast), do: true
+  defp safe_ast?({left, right}), do: safe_ast?(left) and safe_ast?(right)
+  defp safe_ast?({:{}, _meta, args}), do: Enum.all?(args, &safe_ast?/1)
+  defp safe_ast?(list) when is_list(list), do: Enum.all?(list, &safe_ast?/1)
+  defp safe_ast?({:__aliases__, _meta, args}), do: Enum.all?(args, &is_atom/1)
+  defp safe_ast?(_), do: false
+
   @spec to_elixir_types(boolean() | String.t() | map() | list()) :: term()
   def to_elixir_types(%{"tuple" => [":args", args]}) when is_list(args) do
     arguments =
       Enum.map(args, fn arg ->
         if String.contains?(arg, ["{", "}"]) do
-          {elem, []} = Code.eval_string(arg)
-          elem
+          safe_eval(arg)
         else
           to_elixir_types(arg)
         end
@@ -296,10 +315,10 @@ defmodule Pleroma.ConfigDB do
   end
 
   def to_elixir_types(%{"tuple" => [":partial_chain", entity]}) do
-    {partial_chain, []} =
+    partial_chain =
       entity
       |> String.replace(~r/[^\w|^{:,[|^,|^[|^\]^}|^\/|^\.|^"]^\s/, "")
-      |> Code.eval_string()
+      |> safe_eval()
 
     {:partial_chain, partial_chain}
   end
@@ -332,12 +351,9 @@ defmodule Pleroma.ConfigDB do
     pattern =
       ~r/^~r(?'delimiter'[\/|"'([{<]{1})(?'pattern'.+)[\/|"')\]}>]{1}(?'modifier'[uismxfU]*)/u
 
-    delimiters = ["/", "|", "\"", "'", {"(", ")"}, {"[", "]"}, {"{", "}"}, {"<", ">"}]
-
-    with %{"modifier" => modifier, "pattern" => pattern, "delimiter" => regex_delimiter} <-
+    with %{"modifier" => modifier, "pattern" => pattern_str} <-
            Regex.named_captures(pattern, regex),
-         {:ok, {leading, closing}} <- find_valid_delimiter(delimiters, pattern, regex_delimiter),
-         {result, _} <- Code.eval_string("~r#{leading}#{pattern}#{closing}#{modifier}") do
+         {:ok, result} <- Regex.compile(pattern_str, modifier) do
       result
     end
   end
