@@ -1,4 +1,7 @@
-## 2024-05-24 - [CRITICAL] Remote Code Execution via ConfigDB
-**Vulnerability:** The configuration database parser `Pleroma.ConfigDB` used `Code.eval_string/1` to deserialize database configurations (Regexes, tuples, and partial chains). This allows RCE if the config data is manipulated.
-**Learning:** Even seemingly internal configuration parsing can be an attack vector for RCE when dynamic string execution is used in Elixir.
-**Prevention:** Never use `Code.eval_string/1` to parse untrusted strings. Use `Regex.compile/2` for Regexes and `Code.string_to_quoted/1` coupled with strict AST whitelisting (`safe_ast?/1`) to deserialize tuples and native data types.
+## 2024-05-18 - Erlang VM Atom Exhaustion in Authentication
+
+**Vulnerability:** The password verification function (`Pleroma.Password.Pbkdf2.verify_pass/2`) used `String.to_atom/1` on the `digest` string extracted from user-supplied password hashes. A malicious user could supply an arbitrarily long list of unique, invalid password hashes (e.g. `$pbkdf2-invalid1$...`, `$pbkdf2-invalid2$...`), causing the system to dynamically allocate a new atom for each unique invalid digest. Since atoms are never garbage collected in the Erlang VM, this could rapidly exhaust the global atom table limit (default 1,048,576), leading to an unrecoverable node crash and Denial of Service (DoS) for the entire application.
+
+**Learning:** When parsing untrusted data, specifically structural components like algorithm identifiers, you must never dynamically create atoms using `String.to_atom/1`. Elixir/Erlang's lack of atom garbage collection makes this a critical, application-crashing vector. Even in internal or seemingly protected components (like password verification which might be hit by rate-limited endpoints), the risk of node collapse outweighs any convenience. Standard digests are pre-compiled as atoms, so only existing atoms should be expected.
+
+**Prevention:** Always use `String.to_existing_atom/1` when converting untrusted strings to atoms. If the atom does not exist (meaning it's an invalid or unsupported input, like an unknown digest algorithm), it safely raises an `ArgumentError` that the web process supervisor will catch and handle without bringing down the global node. Ensure input validation is strict, especially in authentication pathways.
