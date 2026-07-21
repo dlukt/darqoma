@@ -176,9 +176,7 @@ defmodule Pleroma.Web.ActivityPub.Transmogrifier do
   def fix_actor(%{"attributedTo" => actor} = object) do
     actor = Containment.get_actor(%{"actor" => actor})
 
-    # TODO: Remove actor field for Objects
     object
-    |> Map.put("actor", actor)
     |> Map.put("attributedTo", actor)
   end
 
