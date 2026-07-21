@@ -24,7 +24,7 @@ defmodule Pleroma.Web.Plugs.AdminSecretAuthenticationPlug do
   end
 
   defp authenticate(%{params: %{"admin_token" => admin_token}} = conn) do
-    if admin_token == secret_token() do
+    if Plug.Crypto.secure_compare(admin_token, secret_token()) do
       assign_admin_user(conn)
     else
       handle_bad_token(conn)
@@ -35,9 +35,18 @@ defmodule Pleroma.Web.Plugs.AdminSecretAuthenticationPlug do
     token = secret_token()
 
     case get_req_header(conn, "x-admin-token") do
-      blank when blank in [[], [""]] -> conn
-      [^token] -> assign_admin_user(conn)
-      _ -> handle_bad_token(conn)
+      blank when blank in [[], [""]] ->
+        conn
+
+      [header_token] ->
+        if Plug.Crypto.secure_compare(header_token, token) do
+          assign_admin_user(conn)
+        else
+          handle_bad_token(conn)
+        end
+
+      _ ->
+        handle_bad_token(conn)
     end
   end
 
