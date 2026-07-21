@@ -22,18 +22,22 @@ defmodule Pleroma.Password.Pbkdf2 do
   end
 
   def verify_pass(password, hash) do
-    ["pbkdf2-" <> digest, iterations, salt, hash] = String.split(hash, "$", trim: true)
+    try do
+      ["pbkdf2-" <> digest, iterations, salt, hash] = String.split(hash, "$", trim: true)
 
-    salt = decode64(salt)
+      salt = decode64(salt)
 
-    iterations = String.to_integer(iterations)
+      iterations = String.to_integer(iterations)
 
-    digest = String.to_atom(digest)
+      digest = String.to_existing_atom(digest)
 
-    binary_hash =
-      KeyGenerator.generate(password, salt, digest: digest, iterations: iterations, length: 64)
+      binary_hash =
+        KeyGenerator.generate(password, salt, digest: digest, iterations: iterations, length: 64)
 
-    encode64(binary_hash) == hash
+      encode64(binary_hash) == hash
+    rescue
+      ArgumentError -> false
+    end
   end
 
   def hash_pwd_salt(password, opts \\ []) do
