@@ -130,7 +130,8 @@ defmodule Pleroma.Web.MediaProxy do
 
   def decode_url(sig, url) do
     with {:ok, sig} <- Base.url_decode64(sig, @base64_opts),
-         signature when signature == sig <- signed_url(url) do
+         signature <- signed_url(url),
+         true <- Plug.Crypto.secure_compare(signature, sig) do
       {:ok, Base.url_decode64!(url, @base64_opts)}
     else
       _ -> {:error, :invalid_signature}
