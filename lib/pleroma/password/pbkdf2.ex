@@ -34,7 +34,7 @@ defmodule Pleroma.Password.Pbkdf2 do
       binary_hash =
         KeyGenerator.generate(password, salt, digest: digest, iterations: iterations, length: 64)
 
-      encode64(binary_hash) == hash
+      Plug.Crypto.secure_compare(encode64(binary_hash), hash)
     rescue
       ArgumentError -> false
     end

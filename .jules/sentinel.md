@@ -11,3 +11,7 @@
 **Vulnerability:** Admin tokens were being compared using standard equality operators (`==`) and pattern matching (`[^token]`), which short-circuit on the first mismatched character. This allowed an attacker to guess the secret admin token by measuring server response times.
 **Learning:** Elixir pattern matching against a bound variable (e.g., `[^token]`) is vulnerable to timing attacks when the variable contains a secret. It behaves similarly to the `==` operator under the hood.
 **Prevention:** Always use `Plug.Crypto.secure_compare/2` for comparing any security-sensitive strings or tokens, and avoid pattern matching exact secret values in function heads or `case` statements.
+## 2024-05-18 - [Timing Attack Mitigation in Hash Comparisons]
+**Vulnerability:** Use of standard string equality operator (`==`) for comparing sensitive hashes, cryptographic signatures, and CAPTCHA answers.
+**Learning:** Standard string comparisons exit early when a mismatch occurs, leaking information about the expected string's length and content through timing variations. This allows an attacker to brute-force hashes byte-by-byte.
+**Prevention:** Always use `Plug.Crypto.secure_compare/2` when comparing security-sensitive strings like tokens, hashes, passwords, and cryptographic signatures in Elixir applications.

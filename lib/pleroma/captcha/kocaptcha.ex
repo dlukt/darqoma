@@ -31,7 +31,10 @@ defmodule Pleroma.Captcha.Kocaptcha do
   def validate(_token, captcha, answer_data) do
     # Here the token is unsed, because the unencrypted captcha answer is just passed to method
     if not is_nil(captcha) and
-         :crypto.hash(:md5, captcha) |> Base.encode16() == String.upcase(answer_data),
+         Plug.Crypto.secure_compare(
+           :crypto.hash(:md5, captcha) |> Base.encode16(),
+           String.upcase(answer_data)
+         ),
        do: :ok,
        else: {:error, :invalid}
   end
