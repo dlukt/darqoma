@@ -15,3 +15,8 @@
 **Vulnerability:** Use of standard string equality operator (`==`) for comparing sensitive hashes, cryptographic signatures, and CAPTCHA answers.
 **Learning:** Standard string comparisons exit early when a mismatch occurs, leaking information about the expected string's length and content through timing variations. This allows an attacker to brute-force hashes byte-by-byte.
 **Prevention:** Always use `Plug.Crypto.secure_compare/2` when comparing security-sensitive strings like tokens, hashes, passwords, and cryptographic signatures in Elixir applications.
+## 2024-05-24 - SQL Injection in Database Mix Task
+
+**Vulnerability:** A Mix task for database administration interpolated an unvalidated string `tsconfig` straight into a raw `ALTER DATABASE ... SET default_text_search_config` query and a `CREATE INDEX` query. An attacker with access to run the Mix task could potentially inject arbitrary SQL commands.
+**Learning:** Raw SQL interpolations (using `#{...}`) without parameterized query variables (`$1`, `$2`, etc.) in `Ecto.Adapters.SQL.query!` should always be reviewed, particularly when parameterized queries are not supported by the SQL dialect (such as in `ALTER DATABASE` or `CREATE INDEX` statement objects in Postgres). In such situations, validating the user input against a database catalog table is an effective way to implement strict whitelisting.
+**Prevention:** If an identifier cannot be dynamically bound in the query using parameterized logic, validate the string dynamically against system catalogs (e.g. checking `pg_ts_config` for text search configurations) before interpolation.

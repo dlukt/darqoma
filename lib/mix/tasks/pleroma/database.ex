@@ -579,6 +579,18 @@ defmodule Mix.Tasks.Pleroma.Database do
     %{rows: [[db]]} = Ecto.Adapters.SQL.query!(Pleroma.Repo, "SELECT current_database();")
     shell_info("Update default_text_search_config: #{tsconfig}")
 
+    %{rows: valid_configs} =
+      Ecto.Adapters.SQL.query!(
+        Pleroma.Repo,
+        "SELECT cfgname FROM pg_ts_config WHERE cfgname = $1;",
+        [tsconfig]
+      )
+
+    if length(valid_configs) == 0 do
+      shell_error("Error: text search configuration '#{tsconfig}' does not exist")
+      exit({:shutdown, 1})
+    end
+
     %{messages: msg} =
       Ecto.Adapters.SQL.query!(
         Pleroma.Repo,
