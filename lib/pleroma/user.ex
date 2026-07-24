@@ -1244,6 +1244,10 @@ defmodule Pleroma.User do
     end
   end
 
+  def normalize_by_ap_id(%{"id" => id}), do: get_cached_by_ap_id(id)
+  def normalize_by_ap_id(uri) when is_binary(uri), do: get_cached_by_ap_id(uri)
+  def normalize_by_ap_id(_), do: nil
+
   @spec get_cached_by_id(String.t()) :: nil | Pleroma.User.t()
   def get_cached_by_id(id) do
     key = "id:#{id}"
