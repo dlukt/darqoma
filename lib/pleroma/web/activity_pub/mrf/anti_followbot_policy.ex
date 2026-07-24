@@ -9,11 +9,6 @@ defmodule Pleroma.Web.ActivityPub.MRF.AntiFollowbotPolicy do
 
   @behaviour Pleroma.Web.ActivityPub.MRF.Policy
 
-  # XXX: this should become User.normalize_by_ap_id() or similar, really.
-  defp normalize_by_ap_id(%{"id" => id}), do: User.get_cached_by_ap_id(id)
-  defp normalize_by_ap_id(uri) when is_binary(uri), do: User.get_cached_by_ap_id(uri)
-  defp normalize_by_ap_id(_), do: nil
-
   defp score_nickname("followbot@" <> _), do: 1.0
   defp score_nickname("federationbot@" <> _), do: 1.0
   defp score_nickname("federation_bot@" <> _), do: 1.0
@@ -63,14 +58,14 @@ defmodule Pleroma.Web.ActivityPub.MRF.AntiFollowbotPolicy do
   defp determine_if_followbot(_), do: 0.0
 
   defp bot_allowed?(%{"object" => target}, bot_actor) do
-    %User{} = user = normalize_by_ap_id(target)
+    %User{} = user = User.normalize_by_ap_id(target)
 
     User.following?(user, bot_actor)
   end
 
   @impl true
   def filter(%{"type" => "Follow", "actor" => actor_id} = message) do
-    %User{} = actor = normalize_by_ap_id(actor_id)
+    %User{} = actor = User.normalize_by_ap_id(actor_id)
 
     score = determine_if_followbot(actor)
 
