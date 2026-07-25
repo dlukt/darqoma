@@ -358,7 +358,7 @@ defmodule Pleroma.ConfigDB do
     end
   end
 
-  def string_to_elixir_types(":" <> atom), do: String.to_atom(atom)
+  def string_to_elixir_types(":" <> atom), do: String.to_existing_atom(atom)
 
   def string_to_elixir_types(value) do
     if module_name?(value) do
