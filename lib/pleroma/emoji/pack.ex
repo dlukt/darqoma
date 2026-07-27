@@ -660,7 +660,7 @@ defmodule Pleroma.Emoji.Pack do
 
   defp download_archive(url, sha) do
     with {:ok, %{body: archive}} <- Pleroma.HTTP.get(url) do
-      if Base.decode16!(sha) == :crypto.hash(:sha256, archive) do
+      if Plug.Crypto.secure_compare(Base.decode16!(sha), :crypto.hash(:sha256, archive)) do
         {:ok, archive}
       else
         {:error, :invalid_checksum}
