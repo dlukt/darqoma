@@ -28,7 +28,7 @@ defmodule Pleroma.Workers.BackgroundWorker do
   def perform(%Job{args: %{"op" => op, "user_id" => user_id, "identifier" => identifier}})
       when op in ["blocks_import", "follow_import", "mutes_import"] do
     user = User.get_cached_by_id(user_id)
-    {:ok, User.Import.perform(String.to_atom(op), user, identifier)}
+    {:ok, User.Import.perform(String.to_existing_atom(op), user, identifier)}
   end
 
   def perform(%Job{
