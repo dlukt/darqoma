@@ -24,11 +24,16 @@ defmodule Pleroma.Conversation.Participation.RecipientShip do
 
   def create(%User{} = user, participation), do: create([user], participation)
 
+  def create([], _participation), do: :ok
+
   def create(users, participation) do
-    Enum.each(users, fn user ->
-      %__MODULE__{}
-      |> creation_cng(%{user_id: user.id, participation_id: participation.id})
-      |> Repo.insert!()
-    end)
+    records =
+      Enum.map(users, fn user ->
+        %{user_id: user.id, participation_id: participation.id}
+      end)
+
+    Repo.insert_all(__MODULE__, records)
+
+    :ok
   end
 end
