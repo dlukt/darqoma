@@ -269,7 +269,7 @@ defmodule Pleroma.Web.Plugs.RateLimiterTest do
   end
 
   def expire_ttl(%{remote_ip: remote_ip} = _conn, bucket_name_root) do
-    bucket_name = "anon:#{bucket_name_root}" |> String.to_atom()
+    bucket_name = "anon:#{bucket_name_root}" |> String.to_existing_atom()
     key_name = "ip::#{remote_ip |> Tuple.to_list() |> Enum.join(".")}"
 
     {:ok, bucket_value} = Cachex.get(bucket_name, key_name)
