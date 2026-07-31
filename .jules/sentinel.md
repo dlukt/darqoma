@@ -24,3 +24,7 @@
  **Vulnerability:** Unbounded string-to-atom conversion using `String.to_atom/1` on potentially dynamic or external data.
  **Learning:** In Elixir/Erlang, atoms are not garbage collected. Dynamically creating atoms from untrusted inputs can quickly exhaust the atom table, crashing the BEAM virtual machine and causing a Denial of Service.
  **Prevention:** Use `String.to_existing_atom/1` for converting strings to atoms, especially when dealing with external or user-provided input. Do not catch the `ArgumentError` to return a default atom like `:invalid_atom` if it could corrupt valid config data.
+## 2024-05-24 - Pre-loading Atoms for Safe ETS/Cachex Names
+ **Vulnerability:** Atom Exhaustion Denial of Service via `String.to_atom/1` on dynamic strings used as Cachex cache names.
+ **Learning:** When a module (like `Cachex` or standard `ets`) strictly requires atoms for identifiers, switching to `String.to_existing_atom/1` for dynamic input can introduce immediate functional regressions (`ArgumentError`) if the atoms are not guaranteed to exist.
+ **Prevention:** Securely pre-load expected atoms during a bounded configuration phase (like Plug's `init/1` callback at compile/startup time) using `String.to_atom/1`, which allows the runtime execution (e.g. `call/2`) to safely use `String.to_existing_atom/1` on dynamically interpolated identifiers without risking DoS.

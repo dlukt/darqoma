@@ -76,6 +76,14 @@ defmodule Pleroma.Web.Plugs.RateLimiter do
 
   @doc false
   def init(plug_opts) do
+    if limiter_name = plug_opts[:name] do
+      bucket_name_root = Keyword.get(plug_opts, :bucket_name, limiter_name)
+      _ = String.to_atom("user:#{bucket_name_root}")
+      _ = String.to_atom("anon:#{bucket_name_root}")
+      _ = String.to_atom("rl_user:#{bucket_name_root}")
+      _ = String.to_atom("rl_anon:#{bucket_name_root}")
+    end
+
     plug_opts
   end
 
@@ -270,6 +278,6 @@ defmodule Pleroma.Web.Plugs.RateLimiter do
   defp attach_identity(base, %{mode: :anon, conn_info: conn_info}),
     do: "ip:#{base}:#{conn_info}"
 
-  defp user_bucket_name(bucket_name_root), do: "user:#{bucket_name_root}" |> String.to_atom()
-  defp anon_bucket_name(bucket_name_root), do: "anon:#{bucket_name_root}" |> String.to_atom()
+  defp user_bucket_name(bucket_name_root), do: "user:#{bucket_name_root}" |> String.to_existing_atom()
+  defp anon_bucket_name(bucket_name_root), do: "anon:#{bucket_name_root}" |> String.to_existing_atom()
 end
