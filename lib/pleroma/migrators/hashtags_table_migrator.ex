@@ -48,13 +48,9 @@ defmodule Pleroma.Migrators.HashtagsTableMigrator do
         |> Enum.filter(&(elem(&1, 0) == :ok))
         |> length()
 
-      for failed_id <- failed_ids do
-        _ =
-          Repo.query(
-            "INSERT INTO data_migration_failed_ids(data_migration_id, record_id) " <>
-              "VALUES ($1, $2) ON CONFLICT DO NOTHING;",
-            [data_migration_id, failed_id]
-          )
+      unless Enum.empty?(failed_ids) do
+        maps = Enum.map(failed_ids, &%{data_migration_id: data_migration_id, record_id: &1})
+        Repo.insert_all("data_migration_failed_ids", maps, on_conflict: :nothing)
       end
 
       _ =
