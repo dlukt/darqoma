@@ -30,7 +30,13 @@ defmodule Pleroma.Migrators.Support.BaseMigratorState do
 
         data =
           if data_migration do
-            Map.new(data_migration.data, fn {k, v} -> {String.to_atom(k), v} end)
+            Map.new(data_migration.data, fn {k, v} ->
+              try do
+                {String.to_existing_atom(k), v}
+              rescue
+                ArgumentError -> {k, v}
+              end
+            end)
           else
             %{}
           end

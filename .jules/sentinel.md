@@ -28,3 +28,8 @@
  **Vulnerability:** Atom Exhaustion Denial of Service via `String.to_atom/1` on dynamic strings used as Cachex cache names.
  **Learning:** When a module (like `Cachex` or standard `ets`) strictly requires atoms for identifiers, switching to `String.to_existing_atom/1` for dynamic input can introduce immediate functional regressions (`ArgumentError`) if the atoms are not guaranteed to exist.
  **Prevention:** Securely pre-load expected atoms during a bounded configuration phase (like Plug's `init/1` callback at compile/startup time) using `String.to_atom/1`, which allows the runtime execution (e.g. `call/2`) to safely use `String.to_existing_atom/1` on dynamically interpolated identifiers without risking DoS.
+## 2024-05-24 - DoS through Atom Exhaustion
+
+**Vulnerability:** Converting untrusted user/database string inputs into atoms using `String.to_atom/1` can exhaust the BEAM virtual machine's atom table, causing a denial of service (DoS) by crashing the application.
+**Learning:** `String.to_existing_atom/1` should be used instead of `String.to_atom/1` when parsing external keys. When doing so in data loading paths, it's safer to wrap it in a `try...rescue` block that catches `ArgumentError` and falls back to using the string key. This avoids crashes on legacy or unexpected data while guaranteeing security.
+**Prevention:** Avoid `String.to_atom/1` on arbitrary data, especially JSON or map keys coming from the database. Use `String.to_existing_atom/1` with proper fallback handling.
