@@ -1244,6 +1244,52 @@ defmodule Pleroma.User do
     end
   end
 
+  @spec get_cached_by_ap_ids([String.t()]) :: [User.t()]
+  def get_cached_by_ap_ids(ap_ids) do
+    ap_ids = Enum.uniq(ap_ids)
+
+    # Perform a fast cache lookup for all ids
+    cached_results =
+      Enum.map(ap_ids, fn ap_id ->
+        key = "ap_id:#{ap_id}"
+        case @cachex.get(:user_cache, key) do
+          {:ok, user} when not is_nil(user) -> {ap_id, user}
+          {:ok, nil} -> {ap_id, :negative_cache}
+          _ -> {ap_id, nil}
+        end
+      end)
+
+    missing_ap_ids =
+      Enum.reduce(cached_results, [], fn
+        {ap_id, nil}, acc -> [ap_id | acc]
+        _, acc -> acc
+      end)
+
+    # Bulk query missing users and cache them
+    missing_users_map =
+      if missing_ap_ids != [] do
+        fetched_users = get_all_by_ap_id(missing_ap_ids)
+
+        users_by_ap_id =
+          Enum.into(fetched_users, %{}, fn user -> {user.ap_id, user} end)
+
+        Enum.each(missing_ap_ids, fn ap_id ->
+          user = Map.get(users_by_ap_id, ap_id)
+          @cachex.put(:user_cache, "ap_id:#{ap_id}", user)
+        end)
+
+        users_by_ap_id
+      else
+        %{}
+      end
+
+    Enum.map(cached_results, fn
+      {ap_id, :negative_cache} -> nil
+      {ap_id, nil} -> Map.get(missing_users_map, ap_id)
+      {_ap_id, user} -> user
+    end)
+  end
+
   def normalize_by_ap_id(%{"id" => id}), do: get_cached_by_ap_id(id)
   def normalize_by_ap_id(uri) when is_binary(uri), do: get_cached_by_ap_id(uri)
   def normalize_by_ap_id(_), do: nil
