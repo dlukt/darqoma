@@ -618,7 +618,13 @@ defmodule Mix.Tasks.Pleroma.Database do
         )
 
         shell_info("Refresh RUM index")
-        Ecto.Adapters.SQL.query!(Pleroma.Repo, "UPDATE objects SET updated_at = NOW();")
+
+        Ecto.Adapters.SQL.query!(
+          Pleroma.Repo,
+          "UPDATE objects SET updated_at = NOW();",
+          [],
+          timeout: :infinity
+        )
       else
         Ecto.Adapters.SQL.query!(Pleroma.Repo, "DROP INDEX IF EXISTS objects_fts;")
 
