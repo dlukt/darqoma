@@ -24,15 +24,27 @@ defmodule Pleroma.Web.Plugs.RateLimiterTest do
       clear_config([:rate_limit, @limiter_name], {1, 1})
       clear_config([Pleroma.Web.Endpoint, :http, :ip], {8, 8, 8, 8})
 
-      assert %{limits: {1, 1}, name: :test_init, opts: [name: :test_init]} ==
-               [name: @limiter_name]
-               |> RateLimiter.init()
-               |> RateLimiter.action_settings()
+      plug_opts = RateLimiter.init(name: @limiter_name)
+
+      assert %{
+               bucket_names: %{anon: :"anon:test_init", user: :"user:test_init"},
+               limits: {1, 1},
+               name: :test_init,
+               opts: ^plug_opts
+             } = RateLimiter.action_settings(plug_opts)
 
       assert nil ==
                [name: :nonexisting_limiter]
                |> RateLimiter.init()
                |> RateLimiter.action_settings()
+    end
+
+    test "retains generated bucket atoms in the initialized plug options" do
+      plug_opts = RateLimiter.init(name: :test_retained_bucket_names)
+
+      assert %{anon: anon_bucket, user: user_bucket} = plug_opts[:bucket_names]
+      assert Atom.to_string(anon_bucket) == "anon:test_retained_bucket_names"
+      assert Atom.to_string(user_bucket) == "user:test_retained_bucket_names"
     end
   end
 

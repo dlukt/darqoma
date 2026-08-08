@@ -14,6 +14,8 @@ defmodule Pleroma.Web.Plugs.AdminSecretAuthenticationPlugTest do
   alias Pleroma.Web.Plugs.PlugHelper
   alias Pleroma.Web.Plugs.RateLimiter
 
+  @rate_limiter_opts RateLimiter.init(name: :authentication)
+
   test "does nothing if a user is assigned", %{conn: conn} do
     user = insert(:user)
 
@@ -43,7 +45,7 @@ defmodule Pleroma.Web.Plugs.AdminSecretAuthenticationPlugTest do
         |> AdminSecretAuthenticationPlug.call(%{})
 
       refute conn.assigns[:user]
-      assert called(RateLimiter.call(conn, name: :authentication))
+      assert called(RateLimiter.call(conn, @rate_limiter_opts))
 
       conn =
         %{conn | params: %{"admin_token" => "password123"}}
@@ -63,7 +65,7 @@ defmodule Pleroma.Web.Plugs.AdminSecretAuthenticationPlugTest do
         |> AdminSecretAuthenticationPlug.call(%{})
 
       refute conn.assigns[:user]
-      assert called(RateLimiter.call(conn, name: :authentication))
+      assert called(RateLimiter.call(conn, @rate_limiter_opts))
 
       conn =
         conn

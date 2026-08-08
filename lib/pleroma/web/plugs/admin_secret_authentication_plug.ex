@@ -9,6 +9,8 @@ defmodule Pleroma.Web.Plugs.AdminSecretAuthenticationPlug do
   alias Pleroma.User
   alias Pleroma.Web.Plugs.RateLimiter
 
+  @rate_limiter_opts RateLimiter.init(name: :authentication)
+
   def init(options) do
     options
   end
@@ -64,6 +66,6 @@ defmodule Pleroma.Web.Plugs.AdminSecretAuthenticationPlug do
   end
 
   defp handle_bad_token(conn) do
-    RateLimiter.call(conn, name: :authentication)
+    RateLimiter.call(conn, @rate_limiter_opts)
   end
 end

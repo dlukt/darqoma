@@ -16,7 +16,7 @@ defmodule Pleroma.Web.Plugs.RateLimiter.LimiterSupervisor do
       DynamicSupervisor.start_child(
         __MODULE__,
         %{
-          id: String.to_existing_atom("rl_#{limiter_name}"),
+          id: {__MODULE__, limiter_name},
           start:
             {Cachex, :start_link,
              [

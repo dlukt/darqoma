@@ -73,18 +73,19 @@ defmodule Pleroma.Web.Plugs.RateLimiter do
   require Logger
 
   @cachex Pleroma.Config.get([:cachex, :provider], Cachex)
+  @bucket_names_opt :bucket_names
 
   @doc false
   def init(plug_opts) do
     if limiter_name = plug_opts[:name] do
       bucket_name_root = Keyword.get(plug_opts, :bucket_name, limiter_name)
-      _ = String.to_atom("user:#{bucket_name_root}")
-      _ = String.to_atom("anon:#{bucket_name_root}")
-      _ = String.to_atom("rl_user:#{bucket_name_root}")
-      _ = String.to_atom("rl_anon:#{bucket_name_root}")
-    end
 
-    plug_opts
+      # Plug initialization can happen in a compiler VM. Keep the generated atoms in the
+      # returned options so they are embedded in the caller and loaded by the runtime VM.
+      Keyword.put(plug_opts, @bucket_names_opt, bucket_names(bucket_name_root))
+    else
+      plug_opts
+    end
   end
 
   def call(conn, plug_opts) do
@@ -130,19 +131,21 @@ defmodule Pleroma.Web.Plugs.RateLimiter do
   def inspect_bucket(conn, bucket_name_root, plug_opts) do
     with %{name: _} = action_settings <- action_settings(plug_opts) do
       action_settings = incorporate_conn_info(action_settings, conn)
-      bucket_name = make_bucket_name(%{action_settings | name: bucket_name_root})
-      key_name = make_key_name(action_settings)
-      limit = get_limits(action_settings)
 
-      case @cachex.get(bucket_name, key_name) do
-        {:error, :no_cache} ->
-          @inspect_bucket_not_found
+      with {:ok, bucket_name} <- inspect_bucket_name(action_settings, bucket_name_root) do
+        key_name = make_key_name(action_settings)
+        limit = get_limits(action_settings)
 
-        {:ok, nil} ->
-          {0, limit}
+        case @cachex.get(bucket_name, key_name) do
+          {:error, :no_cache} ->
+            @inspect_bucket_not_found
 
-        {:ok, value} ->
-          {value, limit - value}
+          {:ok, nil} ->
+            {0, limit}
+
+          {:ok, value} ->
+            {value, limit - value}
+        end
       end
     else
       _ -> @inspect_bucket_not_found
@@ -156,6 +159,7 @@ defmodule Pleroma.Web.Plugs.RateLimiter do
 
       %{
         name: bucket_name_root,
+        bucket_names: Keyword.fetch!(plug_opts, @bucket_names_opt),
         limits: limits,
         opts: plug_opts
       }
@@ -241,11 +245,17 @@ defmodule Pleroma.Web.Plugs.RateLimiter do
 
   defp get_limits(%{limits: [{_, limit}, _]}), do: limit
 
-  defp make_bucket_name(%{mode: :user, name: bucket_name_root}),
-    do: user_bucket_name(bucket_name_root)
+  defp make_bucket_name(%{mode: mode, bucket_names: bucket_names}),
+    do: Map.fetch!(bucket_names, mode)
 
-  defp make_bucket_name(%{mode: :anon, name: bucket_name_root}),
-    do: anon_bucket_name(bucket_name_root)
+  defp inspect_bucket_name(%{name: bucket_name_root} = action_settings, bucket_name_root),
+    do: {:ok, make_bucket_name(action_settings)}
+
+  defp inspect_bucket_name(%{mode: mode}, bucket_name_root) do
+    {:ok, String.to_existing_atom("#{mode}:#{bucket_name_root}")}
+  rescue
+    ArgumentError -> @inspect_bucket_not_found
+  end
 
   defp attach_selected_params(input, %{conn_params: conn_params, opts: plug_opts}) do
     params_string =
@@ -260,14 +270,14 @@ defmodule Pleroma.Web.Plugs.RateLimiter do
     |> String.replace_leading(":", "")
   end
 
-  defp initialize_buckets!(%{name: _name, limits: nil}), do: :ok
+  defp initialize_buckets!(%{limits: nil}), do: :ok
 
-  defp initialize_buckets!(%{name: name, limits: limits}) do
+  defp initialize_buckets!(%{bucket_names: bucket_names, limits: limits}) do
     {:ok, _pid} =
-      LimiterSupervisor.add_or_return_limiter(anon_bucket_name(name), get_scale(:anon, limits))
+      LimiterSupervisor.add_or_return_limiter(bucket_names.anon, get_scale(:anon, limits))
 
     {:ok, _pid} =
-      LimiterSupervisor.add_or_return_limiter(user_bucket_name(name), get_scale(:user, limits))
+      LimiterSupervisor.add_or_return_limiter(bucket_names.user, get_scale(:user, limits))
 
     :ok
   end
@@ -278,6 +288,10 @@ defmodule Pleroma.Web.Plugs.RateLimiter do
   defp attach_identity(base, %{mode: :anon, conn_info: conn_info}),
     do: "ip:#{base}:#{conn_info}"
 
-  defp user_bucket_name(bucket_name_root), do: "user:#{bucket_name_root}" |> String.to_existing_atom()
-  defp anon_bucket_name(bucket_name_root), do: "anon:#{bucket_name_root}" |> String.to_existing_atom()
+  defp bucket_names(bucket_name_root) do
+    %{
+      user: String.to_atom("user:#{bucket_name_root}"),
+      anon: String.to_atom("anon:#{bucket_name_root}")
+    }
+  end
 end
