@@ -12,6 +12,7 @@ steps:
   docs:
     environment:
       CI: "true"
+      NO_MKDOCS_2_WARNING: "true"
       SCW_ACCESS_KEY:
         from_secret: SCW_ACCESS_KEY
       SCW_SECRET_KEY:
