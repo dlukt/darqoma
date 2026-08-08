@@ -770,7 +770,8 @@ config :pleroma, :frontends,
   admin: %{"name" => "admin-fe", "ref" => "stable"},
   mastodon: %{"name" => "mastodon-fe", "ref" => "akkoma"},
   pickable: [
-    "pleroma-fe/stable"
+    "pleroma-fe/stable",
+    "darq-fe/main"
   ],
   swagger: %{
     "name" => "swagger-ui",
@@ -846,6 +847,13 @@ config :pleroma, :frontends,
       "ref" => "develop",
       "build_dir" => ".",
       "bugtracker" => "https://codeberg.org/mkljczk/pl-fe/issues"
+    },
+    "darq-fe" => %{
+      "name" => "darq-fe",
+      "git" => "https://github.com/dlukt/darq-fe",
+      "bugtracker" => "https://github.com/dlukt/darq-fe/issues",
+      "ref" => "main",
+      "build_dir" => "dist"
     }
   }
 
