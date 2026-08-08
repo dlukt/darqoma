@@ -90,7 +90,7 @@ defmodule Pleroma.Web.Federator.Publisher do
 
     [to, cc, bcc]
     |> Enum.concat()
-    |> Enum.map(&User.get_cached_by_ap_id/1)
+    |> User.get_cached_by_ap_ids()
     |> Enum.filter(fn user -> user && !user.local end)
   end
 end
