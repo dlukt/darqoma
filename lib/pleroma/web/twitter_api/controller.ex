@@ -19,13 +19,18 @@ defmodule Pleroma.Web.TwitterAPI.Controller do
 
   def confirm_email(conn, %{"user_id" => uid, "token" => token}) do
     case User.get_cached_by_id(uid) do
-      %User{local: true, is_confirmed: false, confirmation_token: ^token} = user ->
-        case User.confirm(user) do
-          {:ok, _} ->
-            redirect(conn, to: "/")
+      %User{local: true, is_confirmed: false, confirmation_token: confirmation_token} = user
+      when is_binary(confirmation_token) ->
+        if Plug.Crypto.secure_compare(confirmation_token, token) do
+          case User.confirm(user) do
+            {:ok, _} ->
+              redirect(conn, to: "/")
 
-          {:error, _} ->
-            json_reply(conn, 400, "Unable to confirm")
+            {:error, _} ->
+              json_reply(conn, 400, "Unable to confirm")
+          end
+        else
+          json_reply(conn, 400, "Couldn't verify email")
         end
 
       %User{is_confirmed: true} ->
