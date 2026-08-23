@@ -33,3 +33,7 @@
 **Vulnerability:** Converting untrusted user/database string inputs into atoms using `String.to_atom/1` can exhaust the BEAM virtual machine's atom table, causing a denial of service (DoS) by crashing the application.
 **Learning:** `String.to_existing_atom/1` should be used instead of `String.to_atom/1` when parsing external keys. When doing so in data loading paths, it's safer to wrap it in a `try...rescue` block that catches `ArgumentError` and falls back to using the string key. This avoids crashes on legacy or unexpected data while guaranteeing security.
 **Prevention:** Avoid `String.to_atom/1` on arbitrary data, especially JSON or map keys coming from the database. Use `String.to_existing_atom/1` with proper fallback handling.
+## 2025-02-18 - Timing Attack in Email Confirmation
+**Vulnerability:** The email confirmation logic in `Pleroma.Web.TwitterAPI.Controller.confirm_email/2` used Elixir's pattern matching pin operator (`^token`) to verify confirmation tokens. This performs a standard string comparison under the hood.
+**Learning:** Using `^token` in pattern matching or the standard `==` operator for sensitive tokens creates timing attack vulnerabilities. Elixir's short-circuiting string comparison allows attackers to guess tokens byte-by-byte by observing response times.
+**Prevention:** Always use `Plug.Crypto.secure_compare/2` for comparing tokens, signatures, passwords, and hashes, as it ensures constant-time comparison, preventing timing side-channels.
