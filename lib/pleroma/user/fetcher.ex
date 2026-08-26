@@ -279,18 +279,19 @@ condition? Not changing anything."
     end
   end
 
-  def process_featured_collection(nil), do: {:ok, nil, %{}}
-  def process_featured_collection(""), do: {:ok, nil, %{}}
+  def process_featured_collection(collection, opts \\ [])
 
-  def process_featured_collection(featured_collection) do
+  def process_featured_collection(nil, _opts), do: {:ok, nil, %{}}
+  def process_featured_collection("", _opts), do: {:ok, nil, %{}}
+
+  def process_featured_collection(featured_collection, opts) do
     featured_address =
       case get_ap_id(featured_collection) do
         id when is_binary(id) -> id
         _ -> nil
       end
 
-    # TODO: allow passing item/page limit as function opt and use here
-    case Collections.Fetcher.fetch_collection(featured_collection) do
+    case Collections.Fetcher.fetch_collection(featured_collection, opts) do
       {:ok, items} ->
         now = NaiveDateTime.utc_now()
         dated_obj_ids = Map.new(items, fn obj -> {get_ap_id(obj), now} end)

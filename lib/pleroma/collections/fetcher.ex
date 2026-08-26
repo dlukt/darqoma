@@ -11,10 +11,12 @@ defmodule Akkoma.Collections.Fetcher do
   alias Pleroma.Config
   require Logger
 
-  @spec fetch_collection(String.t() | map()) :: {:ok, [Pleroma.Object.t()]} | {:error, any()}
-  def fetch_collection(ap_id) when is_binary(ap_id) do
+  @spec fetch_collection(String.t() | map(), keyword()) :: {:ok, [Pleroma.Object.t()]} | {:error, any()}
+  def fetch_collection(collection, opts \\ [])
+
+  def fetch_collection(ap_id, opts) when is_binary(ap_id) do
     with {:ok, page} <- Fetcher.fetch_and_contain_remote_object_from_id(ap_id) do
-      partial_as_success(objects_from_collection(page))
+      partial_as_success(objects_from_collection(page, opts))
     else
       e ->
         Logger.error("Could not fetch collection #{ap_id} - #{inspect(e)}")
@@ -22,12 +24,12 @@ defmodule Akkoma.Collections.Fetcher do
     end
   end
 
-  def fetch_collection(%{"type" => type} = page)
+  def fetch_collection(%{"type" => type} = page, opts)
       when type in ["Collection", "OrderedCollection", "CollectionPage", "OrderedCollectionPage"] do
-    partial_as_success(objects_from_collection(page))
+    partial_as_success(objects_from_collection(page, opts))
   end
 
-  def fetch_collection(_) do
+  def fetch_collection(_, _opts) do
     {:error, :invalid_type}
   end
 
@@ -42,35 +44,37 @@ defmodule Akkoma.Collections.Fetcher do
        when is_list(items) and type in ["Collection", "CollectionPage"],
        do: items
 
-  defp objects_from_collection(%{"type" => type, "orderedItems" => items} = page)
+  defp objects_from_collection(%{"type" => type, "orderedItems" => items} = page, opts)
        when is_list(items) and type in ["OrderedCollection", "OrderedCollectionPage"],
-       do: maybe_next_page(page, items)
+       do: maybe_next_page(page, opts, items)
 
-  defp objects_from_collection(%{"type" => type, "items" => items} = page)
+  defp objects_from_collection(%{"type" => type, "items" => items} = page, opts)
        when is_list(items) and type in ["Collection", "CollectionPage"],
-       do: maybe_next_page(page, items)
+       do: maybe_next_page(page, opts, items)
 
-  defp objects_from_collection(%{"type" => type, "first" => first})
+  defp objects_from_collection(%{"type" => type, "first" => first}, opts)
        when is_binary(first) and type in ["Collection", "OrderedCollection"] do
-    fetch_page_items(first)
+    fetch_page_items(first, opts)
   end
 
-  defp objects_from_collection(%{"type" => type, "first" => %{"id" => id}})
+  defp objects_from_collection(%{"type" => type, "first" => %{"id" => id}}, opts)
        when is_binary(id) and type in ["Collection", "OrderedCollection"] do
-    fetch_page_items(id)
+    fetch_page_items(id, opts)
   end
 
-  defp objects_from_collection(_page), do: {:ok, []}
+  defp objects_from_collection(_page, _opts), do: {:ok, []}
 
-  defp fetch_page_items(id, items \\ []) do
-    if Enum.count(items) >= Config.get([:activitypub, :max_collection_objects]) do
+  defp fetch_page_items(id, opts, items \\ []) do
+    max_objects = Keyword.get(opts, :max_collection_objects, Config.get([:activitypub, :max_collection_objects]))
+
+    if Enum.count(items) >= max_objects do
       {:ok, items}
     else
       with {:ok, page} <- Fetcher.fetch_and_contain_remote_object_from_id(id) do
         objects = items_in_page(page)
 
         if Enum.count(objects) > 0 do
-          maybe_next_page(page, items ++ objects)
+          maybe_next_page(page, opts, items ++ objects)
         else
           {:ok, items}
         end
@@ -92,9 +96,9 @@ defmodule Akkoma.Collections.Fetcher do
     end
   end
 
-  defp maybe_next_page(%{"next" => id}, items) when is_binary(id) do
-    fetch_page_items(id, items)
+  defp maybe_next_page(%{"next" => id}, opts, items) when is_binary(id) do
+    fetch_page_items(id, opts, items)
   end
 
-  defp maybe_next_page(_, items), do: {:ok, items}
+  defp maybe_next_page(_, _opts, items), do: {:ok, items}
 end
