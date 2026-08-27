@@ -68,7 +68,7 @@ defmodule Akkoma.Collections.Fetcher do
     max_objects = Keyword.get(opts, :max_collection_objects, Config.get([:activitypub, :max_collection_objects]))
 
     if Enum.count(items) >= max_objects do
-      {:ok, items}
+      {:ok, Enum.take(items, max_objects)}
     else
       with {:ok, page} <- Fetcher.fetch_and_contain_remote_object_from_id(id) do
         objects = items_in_page(page)
@@ -97,8 +97,18 @@ defmodule Akkoma.Collections.Fetcher do
   end
 
   defp maybe_next_page(%{"next" => id}, opts, items) when is_binary(id) do
-    fetch_page_items(id, opts, items)
+    max_objects =
+      Keyword.get(opts, :max_collection_objects, Config.get([:activitypub, :max_collection_objects]))
+
+    if Enum.count(items) >= max_objects do
+      {:ok, Enum.take(items, max_objects)}
+    else
+      fetch_page_items(id, opts, items)
+    end
   end
 
-  defp maybe_next_page(_, _opts, items), do: {:ok, items}
+  defp maybe_next_page(_, opts, items) do
+    max_objects = Keyword.get(opts, :max_collection_objects, Config.get([:activitypub, :max_collection_objects]))
+    {:ok, Enum.take(items, max_objects)}
+  end
 end
