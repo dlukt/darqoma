@@ -406,8 +406,9 @@ defmodule Pleroma.Web.OAuth.OAuthController do
     with {:ok, %Token{} = oauth_token} <- Token.get_by_token(token),
          {:ok, oauth_token} <- RevokeToken.revoke(oauth_token) do
       conn =
-        with session_token = AuthHelper.get_session_token(conn),
-             %Token{token: ^session_token} <- oauth_token do
+        with session_token when is_binary(session_token) <- AuthHelper.get_session_token(conn),
+             %Token{token: current_token} <- oauth_token,
+             true <- Plug.Crypto.secure_compare(current_token, session_token) do
           AuthHelper.delete_session_token(conn)
         else
           _ -> conn

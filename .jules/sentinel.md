@@ -37,3 +37,7 @@
 **Vulnerability:** The email confirmation logic in `Pleroma.Web.TwitterAPI.Controller.confirm_email/2` used Elixir's pattern matching pin operator (`^token`) to verify confirmation tokens. This performs a standard string comparison under the hood.
 **Learning:** Using `^token` in pattern matching or the standard `==` operator for sensitive tokens creates timing attack vulnerabilities. Elixir's short-circuiting string comparison allows attackers to guess tokens byte-by-byte by observing response times.
 **Prevention:** Always use `Plug.Crypto.secure_compare/2` for comparing tokens, signatures, passwords, and hashes, as it ensures constant-time comparison, preventing timing side-channels.
+## 2024-05-30 - [Timing Attacks on Token Verification]
+ **Vulnerability:** Pattern matching (e.g. `{:ok, %Token{token: ^session_token}}`) on string values (like tokens) using `^` results in a non-constant time comparison in Elixir which is susceptible to timing attacks.
+ **Learning:** Elixir's `=`/`^` and `==` operators perform short-circuit evaluations on strings, exposing timing differences based on matching characters.
+ **Prevention:** Use `Plug.Crypto.secure_compare/2` for all security-sensitive string comparisons, and guard inputs (e.g., `when is_binary(token)`) as the function expects non-nil binaries.
