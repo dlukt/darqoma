@@ -64,8 +64,9 @@ defmodule Pleroma.Web.MastodonAPI.AuthController do
   def logout(conn, _) do
     conn =
       with %{assigns: %{token: %Token{} = oauth_token}} <- conn,
-           session_token = AuthHelper.get_session_token(conn),
-           {:ok, %Token{token: ^session_token}} <- RevokeToken.revoke(oauth_token) do
+           session_token when is_binary(session_token) <- AuthHelper.get_session_token(conn),
+           {:ok, %Token{token: token}} <- RevokeToken.revoke(oauth_token),
+           true <- Plug.Crypto.secure_compare(token, session_token) do
         AuthHelper.delete_session_token(conn)
       else
         _ -> conn

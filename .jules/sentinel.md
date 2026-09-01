@@ -1,39 +1,4 @@
-## 2024-05-24 - [CRITICAL] Remote Code Execution via ConfigDB
-**Vulnerability:** The configuration database parser `Pleroma.ConfigDB` used `Code.eval_string/1` to deserialize database configurations (Regexes, tuples, and partial chains). This allows RCE if the config data is manipulated.
-**Learning:** Even seemingly internal configuration parsing can be an attack vector for RCE when dynamic string execution is used in Elixir.
-**Prevention:** Never use `Code.eval_string/1` to parse untrusted strings. Use `Regex.compile/2` for Regexes and `Code.string_to_quoted/1` coupled with strict AST whitelisting (`safe_ast?/1`) to deserialize tuples and native data types.
-## 2024-05-18 - Prevent Atom Exhaustion in Elixir Password Verification
- **Vulnerability:** Unsafe atom creation using `String.to_atom` in `lib/pleroma/password/pbkdf2.ex` allowed attackers to exhaust the Erlang VM atom table by supplying unbounded unique digest strings in spoofed password hashes, causing a Denial of Service (DoS) crash.
- **Learning:** In Erlang/Elixir, atoms are not garbage collected. Dynamically creating atoms from untrusted user input using `String.to_atom` is extremely dangerous and can lead to immediate system crashes when the atom limit is reached.
- **Prevention:** Always use `String.to_existing_atom` when parsing untrusted input into atoms. Wrap the conversion in a `try...rescue ArgumentError` block to gracefully handle unrecognized inputs (e.g., returning `false` for failed verification) without crashing the process.
-
-## 2024-05-27 - [Timing Attack in Admin Authentication]
-**Vulnerability:** Admin tokens were being compared using standard equality operators (`==`) and pattern matching (`[^token]`), which short-circuit on the first mismatched character. This allowed an attacker to guess the secret admin token by measuring server response times.
-**Learning:** Elixir pattern matching against a bound variable (e.g., `[^token]`) is vulnerable to timing attacks when the variable contains a secret. It behaves similarly to the `==` operator under the hood.
-**Prevention:** Always use `Plug.Crypto.secure_compare/2` for comparing any security-sensitive strings or tokens, and avoid pattern matching exact secret values in function heads or `case` statements.
-## 2024-05-18 - [Timing Attack Mitigation in Hash Comparisons]
-**Vulnerability:** Use of standard string equality operator (`==`) for comparing sensitive hashes, cryptographic signatures, and CAPTCHA answers.
-**Learning:** Standard string comparisons exit early when a mismatch occurs, leaking information about the expected string's length and content through timing variations. This allows an attacker to brute-force hashes byte-by-byte.
-**Prevention:** Always use `Plug.Crypto.secure_compare/2` when comparing security-sensitive strings like tokens, hashes, passwords, and cryptographic signatures in Elixir applications.
-## 2024-05-24 - SQL Injection in Database Mix Task
-
-**Vulnerability:** A Mix task for database administration interpolated an unvalidated string `tsconfig` straight into a raw `ALTER DATABASE ... SET default_text_search_config` query and a `CREATE INDEX` query. An attacker with access to run the Mix task could potentially inject arbitrary SQL commands.
-**Learning:** Raw SQL interpolations (using `#{...}`) without parameterized query variables (`$1`, `$2`, etc.) in `Ecto.Adapters.SQL.query!` should always be reviewed, particularly when parameterized queries are not supported by the SQL dialect (such as in `ALTER DATABASE` or `CREATE INDEX` statement objects in Postgres). In such situations, validating the user input against a database catalog table is an effective way to implement strict whitelisting.
-**Prevention:** If an identifier cannot be dynamically bound in the query using parameterized logic, validate the string dynamically against system catalogs (e.g. checking `pg_ts_config` for text search configurations) before interpolation.
-## 2025-02-18 - Prevent Denial of Service via Atom Exhaustion in Config DB
- **Vulnerability:** Unbounded string-to-atom conversion using `String.to_atom/1` on potentially dynamic or external data.
- **Learning:** In Elixir/Erlang, atoms are not garbage collected. Dynamically creating atoms from untrusted inputs can quickly exhaust the atom table, crashing the BEAM virtual machine and causing a Denial of Service.
- **Prevention:** Use `String.to_existing_atom/1` for converting strings to atoms, especially when dealing with external or user-provided input. Do not catch the `ArgumentError` to return a default atom like `:invalid_atom` if it could corrupt valid config data.
-## 2024-05-24 - Pre-loading Atoms for Safe ETS/Cachex Names
- **Vulnerability:** Atom Exhaustion Denial of Service via `String.to_atom/1` on dynamic strings used as Cachex cache names.
- **Learning:** When a module (like `Cachex` or standard `ets`) strictly requires atoms for identifiers, switching to `String.to_existing_atom/1` for dynamic input can introduce immediate functional regressions (`ArgumentError`) if the atoms are not guaranteed to exist.
- **Prevention:** Securely pre-load expected atoms during a bounded configuration phase (like Plug's `init/1` callback at compile/startup time) using `String.to_atom/1`, which allows the runtime execution (e.g. `call/2`) to safely use `String.to_existing_atom/1` on dynamically interpolated identifiers without risking DoS.
-## 2024-05-24 - DoS through Atom Exhaustion
-
-**Vulnerability:** Converting untrusted user/database string inputs into atoms using `String.to_atom/1` can exhaust the BEAM virtual machine's atom table, causing a denial of service (DoS) by crashing the application.
-**Learning:** `String.to_existing_atom/1` should be used instead of `String.to_atom/1` when parsing external keys. When doing so in data loading paths, it's safer to wrap it in a `try...rescue` block that catches `ArgumentError` and falls back to using the string key. This avoids crashes on legacy or unexpected data while guaranteeing security.
-**Prevention:** Avoid `String.to_atom/1` on arbitrary data, especially JSON or map keys coming from the database. Use `String.to_existing_atom/1` with proper fallback handling.
-## 2025-02-18 - Timing Attack in Email Confirmation
-**Vulnerability:** The email confirmation logic in `Pleroma.Web.TwitterAPI.Controller.confirm_email/2` used Elixir's pattern matching pin operator (`^token`) to verify confirmation tokens. This performs a standard string comparison under the hood.
-**Learning:** Using `^token` in pattern matching or the standard `==` operator for sensitive tokens creates timing attack vulnerabilities. Elixir's short-circuiting string comparison allows attackers to guess tokens byte-by-byte by observing response times.
-**Prevention:** Always use `Plug.Crypto.secure_compare/2` for comparing tokens, signatures, passwords, and hashes, as it ensures constant-time comparison, preventing timing side-channels.
+## 2024-05-30 - [Timing Attacks on Token Verification]
+ **Vulnerability:** Pattern matching (e.g. `{:ok, %Token{token: ^session_token}}`) on string values (like tokens) using `^` results in a non-constant time comparison in Elixir which is susceptible to timing attacks.
+ **Learning:** Elixir's `=`/`^` and `==` operators perform short-circuit evaluations on strings, exposing timing differences based on matching characters.
+ **Prevention:** Use `Plug.Crypto.secure_compare/2` for all security-sensitive string comparisons, and guard inputs (e.g., `when is_binary(token)`) as the function expects non-nil binaries.
