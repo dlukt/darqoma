@@ -323,8 +323,9 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
   # "?" as written in HTML, also as a character reference
   @question_mark ~r/\?|&#0*63;|&#x0*3f;|&quest;/i
 
-  # Markdown/MFM code spans and fenced blocks, which source replacements skip
-  @code ~r/```[\s\S]*?```|`[^`\n]*`/
+  # Markdown/MFM fenced blocks and code spans with any number of backticks,
+  # which source replacements skip
+  @code ~r/(```+|~~~+)[\s\S]*?(?:\1|\z)|(`+)(?!`)[\s\S]*?(?<!`)\2(?!`)/
 
   @impl true
   def history_awareness, do: :auto
@@ -553,7 +554,8 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
           [query] -> {query, ""}
         end
 
-      rules = site_rules(String.downcase(host))
+      # "www.youtube.com." (with the DNS root) is the same host
+      rules = host |> String.downcase() |> String.trim_trailing(".") |> site_rules()
       pairs = String.split(query, "&")
       # A ";" may separate further parameters, so such pairs are left alone.
       kept =

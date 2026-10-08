@@ -55,6 +55,9 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicyTest do
       assert StripTrackingParamsPolicy.strip_url(
                "https://www.facebook.com/a?__cft__%5B0%5D=1&id=2"
              ) == "https://www.facebook.com/a?id=2"
+
+      assert StripTrackingParamsPolicy.strip_url("https://www.youtube.com./watch?v=x&si=secret") ==
+               "https://www.youtube.com./watch?v=x"
     end
 
     test "leaves parameters followed by a ; separator alone" do
@@ -118,6 +121,14 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicyTest do
 
       assert StripTrackingParamsPolicy.strip_html(html) ==
                ~s(<a href="https://example.com/">https://example.com/?utm_source=x&amp;id=5</a>)
+    end
+
+    test "handles percent escapes that aren't UTF-8" do
+      html =
+        ~s(<a href="https://example.com/?utm_source=x&amp;%FF=1&amp;id=%FF">https://example.com/?utm_source=x&amp;%FF=1&amp;id=%FF</a>)
+
+      assert StripTrackingParamsPolicy.strip_html(html) ==
+               ~s(<a href="https://example.com/?%FF=1&amp;id=%FF">https://example.com/?%FF=1&amp;id=%FF</a>)
     end
 
     test "keeps link text that isn't the link's URL" do
@@ -210,6 +221,9 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicyTest do
         {"https://example.com/?utm_source=x",
          "[sale](https://example.com/?utm_source=x) `https://example.com/?utm_source=x`\n```\ncurl https://example.com/?utm_source=x\n```",
          "[sale](https://example.com/) `https://example.com/?utm_source=x`\n```\ncurl https://example.com/?utm_source=x\n```"},
+        {"https://example.com/?utm_source=x",
+         "[a](https://example.com/?utm_source=x) ``https://example.com/?utm_source=x`` ~~~\nhttps://example.com/?utm_source=x\n~~~ https://example.com/?utm_source=x",
+         "[a](https://example.com/) ``https://example.com/?utm_source=x`` ~~~\nhttps://example.com/?utm_source=x\n~~~ https://example.com/"},
         # Spelled differently from the href: left alone rather than guessed at
         {"https://example.com/?utm_source=x&id=5", "<https://example.com/?utm_source=x&#38;id=5>",
          "<https://example.com/?utm_source=x&#38;id=5>"}
