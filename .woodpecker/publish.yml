@@ -12,32 +12,32 @@ matrix:
     # Canonical amd64
     - ARCH: amd64
       SUFFIX:
-      IMG_VAR: debian-bookworm-20230612
+      IMG_VAR: debian-bookworm-20260610
       UBUNTU_EXPORT: YES
 
     # old debian variant of amd64
     - ARCH: amd64
       SUFFIX: -debian-bullseye
-      IMG_VAR: debian-bullseye-20230612
+      IMG_VAR: debian-bullseye-20260610
 
     # Canonical amd64-musl
     - ARCH: amd64
       SUFFIX: -musl
-      IMG_VAR: alpine-3.18.2
+      IMG_VAR: alpine-3.19.9
       SKIP_DEVELOP: YES
 
     # Canonical arm64
     - ARCH: arm64
       SUFFIX:
       RELEASER_TAG: :arm64
-      IMG_VAR: debian-bookworm-20230612
+      IMG_VAR: debian-bookworm-20260610
       UBUNTU_EXPORT: YES
 
     # Canonical arm64-musl
     - ARCH: arm64
       SUFFIX: -musl
       RELEASER_TAG: :arm64
-      IMG_VAR: alpine-3.18.2
+      IMG_VAR: alpine-3.19.9
       SKIP_DEVELOP: YES
 
 labels:
@@ -46,7 +46,7 @@ labels:
 steps:
   # Canonical amd64
   build:
-    image: hexpm/elixir:1.15.4-erlang-26.0.2-${IMG_VAR}
+    image: hexpm/elixir:1.17.3-erlang-27.1-${IMG_VAR}
     environment:
       MIX_ENV: prod
       DEBIAN_FRONTEND: noninteractive
