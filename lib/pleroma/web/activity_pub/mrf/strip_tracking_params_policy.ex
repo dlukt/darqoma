@@ -316,9 +316,19 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
     {["welt.de"], ["cid"], []}
   ]
 
-  # A URL in HTML ends at markup or at an entity other than &amp;
-  # (&quot;, &#39;, &lt;, ...), which stands for a character URLs don't contain.
-  @html_url ~r/https?:\/\/(?:[^\s<>"'&]|&amp;|&(?![a-z]+;|#[0-9]+;|#x[0-9a-f]+;))+/i
+  # "&" in a URL may be written &amp;, &#38; or &#x26;. Any other entity
+  # (&quot;, &#39;, &lt;, ...) stands for a character URLs don't contain.
+  @amp "&(?:amp|#0*38|#x0*26);"
+  @entity "&(?:[a-z]+|#[0-9]+|#x[0-9a-f]+);"
+
+  # A URL in HTML runs up to markup or a non-& entity. Trailing punctuation
+  # belongs to it at the end of an attribute value or link text, and to the
+  # surrounding prose anywhere else ("see https://example.com/?s=20.").
+  @html_url Regex.compile!(
+              "https?://(?:[^\\s<>\"'&]|#{@amp}|&(?!#{@entity}))+?" <>
+                "(?=[\"']|</a[\\s>]|[.,;:!?)\\]}]*(?:[\\s>]|<(?!/a[\\s>])|(?!#{@amp})#{@entity}|$))",
+              "i"
+            )
   @text_url ~r/https?:\/\/[^\s<>"']+/i
   @trailing_punctuation ~r/[.,;:!?)\]}]+$/
 
@@ -335,9 +345,9 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
       when type in ["Create", "Update"] do
     object =
       object
-      |> update_present("content", &strip_html/1)
-      |> update_present("contentMap", &strip_html/1)
-      |> update_present("source", &strip_text/1)
+      |> update_present("content", &map_strings(&1, fn html -> strip_html(html) end))
+      |> update_present("contentMap", &map_strings(&1, fn html -> strip_html(html) end))
+      |> update_present("source", &strip_source/1)
 
     {:ok, Map.put(activity, "object", object)}
   end
@@ -349,7 +359,7 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
 
   defp update_present(object, field, fun) do
     case object do
-      %{^field => value} -> Map.put(object, field, map_strings(value, fun))
+      %{^field => value} -> Map.put(object, field, fun.(value))
       _ -> object
     end
   end
@@ -365,13 +375,18 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
 
   defp map_strings(value, _fun), do: value
 
+  defp strip_source(%{"mediaType" => "text/html"} = source),
+    do: map_strings(source, &strip_html/1)
+
+  defp strip_source(source), do: map_strings(source, &strip_text/1)
+
   @doc "Removes tracking parameters from links in an HTML fragment."
   @spec strip_html(String.t()) :: String.t()
   def strip_html(html) do
     if String.contains?(html, "?") do
       html
       |> strip_mastodon_link_text()
-      |> then(&Regex.replace(@html_url, &1, fn url -> strip_matched_url(url, :html) end))
+      |> then(&Regex.replace(@html_url, &1, fn url -> strip_html_url(url) end))
     else
       html
     end
@@ -381,25 +396,34 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
   @spec strip_text(String.t()) :: String.t()
   def strip_text(text) do
     if String.contains?(text, "?") do
-      Regex.replace(@text_url, text, fn url -> strip_matched_url(url, :text) end)
+      Regex.replace(@text_url, text, fn url -> strip_text_url(url) end)
     else
       text
     end
   end
 
-  defp strip_matched_url(match, mode) do
+  defp strip_html_url(url) do
+    decoded = HtmlEntities.decode(url)
+    stripped = strip_url(decoded)
+
+    if stripped == decoded, do: url, else: HtmlEntities.encode(stripped)
+  end
+
+  defp strip_text_url(match) do
     {url, trailing} =
       case Regex.run(@trailing_punctuation, match) do
         [trailing] -> {binary_part(match, 0, byte_size(match) - byte_size(trailing)), trailing}
         nil -> {match, ""}
       end
 
-    decoded = if mode == :html, do: HtmlEntities.decode(url), else: url
+    # Markdown may spell "&" as &amp;; keep whichever spelling was used.
+    escaped? = String.contains?(url, "&amp;")
+    decoded = if escaped?, do: String.replace(url, "&amp;", "&"), else: url
     stripped = strip_url(decoded)
 
     cond do
       stripped == decoded -> match
-      mode == :html -> HtmlEntities.encode(stripped) <> trailing
+      escaped? -> String.replace(stripped, "&", "&amp;") <> trailing
       true -> stripped <> trailing
     end
   end
@@ -454,7 +478,11 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
 
       rules = site_rules(String.downcase(host))
       pairs = String.split(query, "&")
-      kept = Enum.reject(pairs, &tracking_param?(param_name(&1), rules))
+      # A ";" may separate further parameters, so such pairs are left alone.
+      kept =
+        Enum.reject(pairs, fn pair ->
+          not String.contains?(pair, ";") and tracking_param?(param_name(pair), rules)
+        end)
 
       cond do
         length(kept) == length(pairs) -> url
@@ -490,14 +518,19 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
   end
 
   # "amazon.*" matches amazon.de, www.amazon.co.uk, smile.amazon.com, ...
-  # but not amazon.example.org or amazon.foo.com.
+  # but not amazon.example.org, amazon.foo.com or amazon.co.com.
   defp matches_domain?(host, domain) do
     case String.split(domain, ".*", parts: 2) do
       [name, ""] ->
         case host |> String.split(".") |> Enum.reverse() do
-          [_tld, ^name | _] -> true
-          [_tld, second_level, ^name | _] -> second_level in ["co", "com"]
-          _ -> false
+          [_tld, ^name | _] ->
+            true
+
+          [tld, second_level, ^name | _] ->
+            second_level in ["co", "com"] and String.length(tld) == 2
+
+          _ ->
+            false
         end
 
       _ ->
