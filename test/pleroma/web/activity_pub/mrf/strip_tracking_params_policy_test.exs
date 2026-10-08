@@ -30,6 +30,20 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicyTest do
       assert StripTrackingParamsPolicy.strip_url(
                "https://example.com/a?utm_source=x&id=5&UTM_Medium=y&b=%20c&fbclid=1#frag"
              ) == "https://example.com/a?id=5&b=%20c#frag"
+
+      assert StripTrackingParamsPolicy.strip_url(
+               "https://example.com/?id=1&&utm_source=x&next=2&"
+             ) ==
+               "https://example.com/?id=1&&next=2&"
+
+      assert StripTrackingParamsPolicy.strip_url("https://example.com/?utm_source=x&") ==
+               "https://example.com/"
+    end
+
+    test "reads the host like a browser when the URL has a backslash" do
+      assert StripTrackingParamsPolicy.strip_url(
+               "https://example.org\\@youtube.com/watch?v=x&si=functional"
+             ) == "https://example.org\\@youtube.com/watch?v=x&si=functional"
     end
 
     test "only applies site rules to their sites" do
@@ -107,7 +121,7 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicyTest do
     end
 
     test "finds hrefs whose ? is written as a character reference" do
-      for question_mark <- ["&#63;", "&#x3F;", "&quest;"] do
+      for question_mark <- ["&#63;", "&#x3F;", "&quest;", "&#63"] do
         html = ~s(<a href="https://example.com/#{question_mark}utm_source=x">link</a>)
 
         assert StripTrackingParamsPolicy.strip_html(html) ==
@@ -224,6 +238,9 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicyTest do
         {"https://example.com/?utm_source=x",
          "[a](https://example.com/?utm_source=x) ``https://example.com/?utm_source=x`` ~~~\nhttps://example.com/?utm_source=x\n~~~ https://example.com/?utm_source=x",
          "[a](https://example.com/) ``https://example.com/?utm_source=x`` ~~~\nhttps://example.com/?utm_source=x\n~~~ https://example.com/"},
+        {"https://example.com/?utm_source=x",
+         "[a](https://example.com/?utm_source=x)\n\n    curl https://example.com/?utm_source=x\n\nhttps://example.com/?utm_source=x",
+         "[a](https://example.com/)\n\n    curl https://example.com/?utm_source=x\n\nhttps://example.com/"},
         # Spelled differently from the href: left alone rather than guessed at
         {"https://example.com/?utm_source=x&id=5", "<https://example.com/?utm_source=x&#38;id=5>",
          "<https://example.com/?utm_source=x&#38;id=5>"}

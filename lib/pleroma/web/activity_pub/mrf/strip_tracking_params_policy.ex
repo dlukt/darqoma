@@ -320,12 +320,12 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
   # ends inside source text.
   @url_char "[\\w\\-~%/=&#+@]"
 
-  # "?" as written in HTML, also as a character reference
-  @question_mark ~r/\?|&#0*63;|&#x0*3f;|&quest;/i
+  # Only anchors are changed, so HTML without one isn't parsed
+  @anchor ~r/<a[\s>\/]/i
 
-  # Markdown/MFM fenced blocks and code spans with any number of backticks,
-  # which source replacements skip
-  @code ~r/(```+|~~~+)[\s\S]*?(?:\1|\z)|(`+)(?!`)[\s\S]*?(?<!`)\2(?!`)/
+  # Markdown/MFM fenced blocks, code spans with any number of backticks and
+  # indented lines, which source replacements skip
+  @code ~r/(```+|~~~+)[\s\S]*?(?:\1|\z)|(`+)(?!`)[\s\S]*?(?<!`)\2(?!`)|^(?: {4}|\t)[^\n]*/m
 
   @impl true
   def history_awareness, do: :auto
@@ -456,7 +456,8 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
   # changed; URLs in code blocks or prose are left as written. Returns the
   # cleaned HTML and the replaced link addresses.
   defp clean_html(html) do
-    with true <- Regex.match?(@question_mark, html),
+    # A query needs "?", or "&" to spell it as a character reference
+    with true <- Regex.match?(@anchor, html) and String.contains?(html, ["?", "&"]),
          {:ok, tree} <- Floki.parse_fragment(html),
          {tree, replaced} when replaced != %{} <-
            Floki.traverse_and_update(tree, %{}, &clean_link/2) do
@@ -547,7 +548,8 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
   def strip_url(url) do
     with [base, rest] <- :binary.split(url, "?"),
          false <- String.contains?(base, "#"),
-         [_, host] <- Regex.run(~r/^https?:\/\/(?:[^\/?#@]*@)?([^\/?#:]+)/i, base) do
+         # A backslash ends the host, as it does in browsers
+         [_, host] <- Regex.run(~r/^https?:\/\/(?:[^\/?#@\\]*@)?([^\/?#:\\]+)/i, base) do
       {query, fragment} =
         case :binary.split(rest, "#") do
           [query, fragment] -> {query, "#" <> fragment}
@@ -566,7 +568,7 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
       cond do
         length(kept) == length(pairs) -> url
         Enum.all?(kept, &(&1 == "")) -> base <> fragment
-        true -> base <> "?" <> Enum.join(Enum.reject(kept, &(&1 == "")), "&") <> fragment
+        true -> base <> "?" <> Enum.join(kept, "&") <> fragment
       end
     else
       _ -> url
