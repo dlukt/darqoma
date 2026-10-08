@@ -320,6 +320,12 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
   # ends inside source text.
   @url_char "[\\w\\-~%/=&#+@]"
 
+  # "?" as written in HTML, also as a character reference
+  @question_mark ~r/\?|&#0*63;|&#x0*3f;|&quest;/i
+
+  # Markdown/MFM code spans and fenced blocks, which source replacements skip
+  @code ~r/```[\s\S]*?```|`[^`\n]*`/
+
   @impl true
   def history_awareness, do: :auto
 
@@ -395,8 +401,21 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
 
   # Linkify turns "www.example.com/?utm_source=x" into an http:// link, so the
   # address is also looked for without its scheme. Longer addresses go first,
-  # and a match must not continue into a longer URL.
+  # a match must not continue into a longer URL, and code is left as written.
   defp replace_urls(text, replaced) do
+    replacements = source_replacements(replaced)
+
+    # Regex.split with captures alternates text and code, starting with text
+    @code
+    |> Regex.split(text, include_captures: true)
+    |> Enum.with_index()
+    |> Enum.map_join(fn
+      {segment, index} when rem(index, 2) == 0 -> replace_in_segment(segment, replacements)
+      {code, _index} -> code
+    end)
+  end
+
+  defp source_replacements(replaced) do
     replaced
     |> Enum.flat_map(fn {original, cleaned} ->
       case Regex.run(~r/^https?:\/\//i, original) do
@@ -416,7 +435,10 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
       end
     end)
     |> Enum.sort_by(fn {original, _} -> -String.length(original) end)
-    |> Enum.reduce(text, fn {original, cleaned}, text ->
+  end
+
+  defp replace_in_segment(text, replacements) do
+    Enum.reduce(replacements, text, fn {original, cleaned}, text ->
       Regex.replace(
         ~r/(?<![\w.\-\/@:])#{Regex.escape(original)}(?!#{@url_char}|[.,;:!?]+#{@url_char})/u,
         text,
@@ -433,7 +455,7 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
   # changed; URLs in code blocks or prose are left as written. Returns the
   # cleaned HTML and the replaced link addresses.
   defp clean_html(html) do
-    with true <- String.contains?(html, "?"),
+    with true <- Regex.match?(@question_mark, html),
          {:ok, tree} <- Floki.parse_fragment(html),
          {tree, replaced} when replaced != %{} <-
            Floki.traverse_and_update(tree, %{}, &clean_link/2) do
@@ -476,17 +498,16 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
     end
   end
 
-  # Percent-decoded URL without scheme and "www.", to compare link text with
-  # the link it belongs to.
+  # URL without scheme and "www.", decoded like JavaScript's decodeURI, to
+  # compare link text with the link it belongs to. Reserved characters stay
+  # escaped, so "?a=1%26b=2" and "?a=1&b=2" don't compare equal.
   defp display_form(url) do
-    decoded =
-      try do
-        URI.decode(url)
-      rescue
-        ArgumentError -> url
-      end
-
-    String.replace(decoded, ~r/^(https?:\/\/)?(www\.)?/i, "")
+    ~r/%([0-9a-f]{2})/i
+    |> Regex.replace(url, fn escape, hex ->
+      char = String.to_integer(hex, 16)
+      if char in ~c";/?:@&=+$,#", do: String.upcase(escape), else: <<char>>
+    end)
+    |> String.replace(~r/^(https?:\/\/)?(www\.)?/i, "")
   end
 
   defp count_text_nodes(nodes) do

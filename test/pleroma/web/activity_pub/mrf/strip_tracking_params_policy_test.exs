@@ -103,6 +103,23 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicyTest do
                ~s(<a href="http://www.example.com/?id=1">www.example.com/?id=1</a>)
     end
 
+    test "finds hrefs whose ? is written as a character reference" do
+      for question_mark <- ["&#63;", "&#x3F;", "&quest;"] do
+        html = ~s(<a href="https://example.com/#{question_mark}utm_source=x">link</a>)
+
+        assert StripTrackingParamsPolicy.strip_html(html) ==
+                 ~s(<a href="https://example.com/">link</a>)
+      end
+    end
+
+    test "keeps link text whose separators differ from the href" do
+      html =
+        ~s(<a href="https://example.com/?utm_source=x%26id=5">https://example.com/?utm_source=x&amp;id=5</a>)
+
+      assert StripTrackingParamsPolicy.strip_html(html) ==
+               ~s(<a href="https://example.com/">https://example.com/?utm_source=x&amp;id=5</a>)
+    end
+
     test "keeps link text that isn't the link's URL" do
       html = ~s(<a href="https://example.com/?utm_source=x">help?utm_source=x</a>)
 
@@ -189,6 +206,10 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicyTest do
         {"https://example.com/?s=1&utm_source=x",
          "https://example.com/?s=1&utm_source=x2 https://example.com/?s=1&utm_source=x",
          "https://example.com/?s=1&utm_source=x2 https://example.com/?s=1"},
+        # Code spans and fenced blocks keep their copy of the URL
+        {"https://example.com/?utm_source=x",
+         "[sale](https://example.com/?utm_source=x) `https://example.com/?utm_source=x`\n```\ncurl https://example.com/?utm_source=x\n```",
+         "[sale](https://example.com/) `https://example.com/?utm_source=x`\n```\ncurl https://example.com/?utm_source=x\n```"},
         # Spelled differently from the href: left alone rather than guessed at
         {"https://example.com/?utm_source=x&id=5", "<https://example.com/?utm_source=x&#38;id=5>",
          "<https://example.com/?utm_source=x&#38;id=5>"}
