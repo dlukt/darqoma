@@ -490,13 +490,13 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
   end
 
   # "amazon.*" matches amazon.de, www.amazon.co.uk, smile.amazon.com, ...
-  # but not amazon.example.org.
+  # but not amazon.example.org or amazon.foo.com.
   defp matches_domain?(host, domain) do
     case String.split(domain, ".*", parts: 2) do
       [name, ""] ->
         case host |> String.split(".") |> Enum.reverse() do
           [_tld, ^name | _] -> true
-          [_tld, second_level, ^name | _] -> String.length(second_level) <= 3
+          [_tld, second_level, ^name | _] -> second_level in ["co", "com"]
           _ -> false
         end
 

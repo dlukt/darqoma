@@ -43,6 +43,12 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicyTest do
       assert StripTrackingParamsPolicy.strip_url("https://amazon.example.org/dp?ref=1") ==
                "https://amazon.example.org/dp?ref=1"
 
+      assert StripTrackingParamsPolicy.strip_url("https://amazon.foo.com/dp?ref=1") ==
+               "https://amazon.foo.com/dp?ref=1"
+
+      assert StripTrackingParamsPolicy.strip_url("https://www.amazon.com.au/dp/B0?ref=1") ==
+               "https://www.amazon.com.au/dp/B0"
+
       assert StripTrackingParamsPolicy.strip_url(
                "https://www.facebook.com/a?__cft__%5B0%5D=1&id=2"
              ) == "https://www.facebook.com/a?id=2"
