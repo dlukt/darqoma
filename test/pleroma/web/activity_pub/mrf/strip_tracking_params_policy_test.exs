@@ -95,16 +95,23 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicyTest do
                ~s(<p><a href="https://www.tagesschau.de/ausland/europa/proteste-frankreich-lecornu-100.html" target="_blank" rel="nofollow noopener noreferrer" translate="no"><span class="invisible">https://www.</span><span class="ellipsis">tagesschau.de/ausland/europa/p</span><span class="invisible">roteste-frankreich-lecornu-100.html</span></a></p>)
     end
 
-    test "does not swallow entities following a URL" do
+    test "cleans scheme-less www. link text" do
       html =
-        ~s(&#39;https://example.com/?utm_source=x&#39; &quot;https://example.com/?fbclid=1&quot;)
+        ~s(<a href="http://www.example.com/?utm_source=x&amp;id=1">www.example.com/?utm_source=x&amp;id=1</a>)
 
       assert StripTrackingParamsPolicy.strip_html(html) ==
-               ~s(&#39;https://example.com/&#39; &quot;https://example.com/&quot;)
+               ~s(<a href="http://www.example.com/?id=1">www.example.com/?id=1</a>)
     end
 
-    test "treats numeric entities for & as parameter separators" do
-      for amp <- ["&#38;", "&#x26;", "&amp;"] do
+    test "keeps link text that isn't the link's URL" do
+      html = ~s(<a href="https://example.com/?utm_source=x">help?utm_source=x</a>)
+
+      assert StripTrackingParamsPolicy.strip_html(html) ==
+               ~s(<a href="https://example.com/">help?utm_source=x</a>)
+    end
+
+    test "decodes every spelling of & in the href" do
+      for amp <- ["&#38;", "&#x26;", "&amp;", "&AMP;"] do
         html = ~s(<a href="https://example.com/?utm_source=x#{amp}id=5">link</a>)
 
         assert StripTrackingParamsPolicy.strip_html(html) ==
@@ -112,56 +119,29 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicyTest do
       end
     end
 
-    test "keeps trailing punctuation with the URL in attributes and link text" do
-      html =
-        ~s(<a href="https://example.com/?id=1&amp;utm_campaign=sale!">https://example.com/?id=1&amp;utm_campaign=sale!</a>)
-
-      assert StripTrackingParamsPolicy.strip_html(html) ==
-               ~s(<a href="https://example.com/?id=1">https://example.com/?id=1</a>)
+    test "keeps trailing punctuation with the href, quoted or not" do
+      for html <- [
+            ~s(<a href="https://example.com/?id=1&amp;utm_campaign=sale!" class="x">link</a>),
+            ~s(<a href=https://example.com/?id=1&amp;utm_campaign=sale! class=x>link</a>),
+            ~s(<a href=https://example.com/?id=1&amp;utm_campaign=sale!>link</a>)
+          ] do
+        assert StripTrackingParamsPolicy.strip_html(html) =~
+                 ~s(<a href="https://example.com/?id=1")
+      end
     end
 
-    test "keeps trailing punctuation with the URL in unquoted attributes" do
-      assert StripTrackingParamsPolicy.strip_html(
-               "<a href=https://example.com/?id=1&amp;utm_campaign=sale!>link</a>"
-             ) == "<a href=https://example.com/?id=1>link</a>"
-    end
-
-    test "stops at named entities containing digits" do
-      assert StripTrackingParamsPolicy.strip_html(
-               "<p>https://example.com/?utm_source=x&frac12; rest</p>"
-             ) == "<p>https://example.com/&frac12; rest</p>"
-    end
-
-    test "leaves trailing punctuation of prose in place" do
-      assert StripTrackingParamsPolicy.strip_html(
-               "<p>see https://x.com/a?s=20. or (https://x.com/b?s=20)</p>"
-             ) == "<p>see https://x.com/a. or (https://x.com/b)</p>"
+    test "leaves URLs outside links alone" do
+      for html <- [
+            ~s(<pre><code>curl https://example.com/?utm_source=x&amp;id=5</code></pre>),
+            ~s(<p>see https://example.com/?utm_source=x&frac12; rest</p>)
+          ] do
+        assert StripTrackingParamsPolicy.strip_html(html) == html
+      end
     end
 
     test "leaves content without tracking parameters untouched" do
-      html = ~s(<p>Hello? <a href="https://example.com/?q=1&amp;page=2">link</a></p>)
+      html = ~s(<p>Hello? <a href="https://example.com/?q=1&amp;page=2">link</a><br>x</p>)
       assert StripTrackingParamsPolicy.strip_html(html) == html
-    end
-  end
-
-  describe "strip_text/1" do
-    test "keeps the &amp; spelling of Markdown sources" do
-      assert StripTrackingParamsPolicy.strip_text(
-               "<https://example.com/?utm_source=x&amp;id=5&amp;b=2>"
-             ) == "<https://example.com/?id=5&amp;b=2>"
-    end
-
-    test "keeps trailing punctuation with the URL in Markdown autolinks" do
-      assert StripTrackingParamsPolicy.strip_text(
-               "<https://example.com/?id=1&utm_campaign=sale!>"
-             ) ==
-               "<https://example.com/?id=1>"
-    end
-
-    test "keeps trailing punctuation and Markdown syntax" do
-      assert StripTrackingParamsPolicy.strip_text(
-               "See https://x.com/user/status/1?s=20. Or [this](https://example.com/?utm_source=a&id=1)!"
-             ) == "See https://x.com/user/status/1. Or [this](https://example.com/?id=1)!"
     end
   end
 
@@ -196,6 +176,40 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicyTest do
              }
     end
 
+    test "cleans source text with the replacements made to the content's links" do
+      cases = [
+        {"https://x.com/user/status/1?s=20", "See https://x.com/user/status/1?s=20.",
+         "See https://x.com/user/status/1."},
+        {"https://example.com/?id=1&utm_campaign=sale!",
+         "[x](https://example.com/?id=1&utm_campaign=sale!) and <https://example.com/?id=1&utm_campaign=sale!>",
+         "[x](https://example.com/?id=1) and <https://example.com/?id=1>"},
+        {"http://www.example.com/?utm_source=x", "go to www.example.com/?utm_source=x now",
+         "go to www.example.com/ now"},
+        # A longer URL that merely starts with the link's address is left alone
+        {"https://example.com/?s=1&utm_source=x",
+         "https://example.com/?s=1&utm_source=x2 https://example.com/?s=1&utm_source=x",
+         "https://example.com/?s=1&utm_source=x2 https://example.com/?s=1"},
+        # Spelled differently from the href: left alone rather than guessed at
+        {"https://example.com/?utm_source=x&id=5", "<https://example.com/?utm_source=x&#38;id=5>",
+         "<https://example.com/?utm_source=x&#38;id=5>"}
+      ]
+
+      for {href, source, expected} <- cases do
+        message = %{
+          "type" => "Create",
+          "object" => %{
+            "content" => ~s(<a href="#{HtmlEntities.encode(href)}">link</a>),
+            "source" => %{"content" => source, "mediaType" => "text/markdown", "name" => href}
+          }
+        }
+
+        assert {:ok, %{"object" => %{"source" => result}}} =
+                 StripTrackingParamsPolicy.filter(message)
+
+        assert result == %{"content" => expected, "mediaType" => "text/markdown", "name" => href}
+      end
+    end
+
     test "cleans HTML source as HTML" do
       for media_type <- ["text/html", "TEXT/HTML", "text/html; charset=utf-8"] do
         message = %{
@@ -219,9 +233,9 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicyTest do
       message = %{
         "type" => "Update",
         "object" => %{
-          "content" => "https://example.com/?fbclid=1",
+          "content" => ~s(<a href="https://example.com/?fbclid=1">x</a>),
           "formerRepresentations" => %{
-            "orderedItems" => [%{"content" => "https://example.com/?gclid=1"}]
+            "orderedItems" => [%{"content" => ~s(<a href="https://example.com/?gclid=1">x</a>)}]
           }
         }
       }
@@ -229,9 +243,9 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicyTest do
       assert {:ok, %{"object" => object}} = MRF.filter_one(StripTrackingParamsPolicy, message)
 
       assert %{
-               "content" => "https://example.com/",
+               "content" => ~s(<a href="https://example.com/">x</a>),
                "formerRepresentations" => %{
-                 "orderedItems" => [%{"content" => "https://example.com/"}]
+                 "orderedItems" => [%{"content" => ~s(<a href="https://example.com/">x</a>)}]
                }
              } = object
     end
@@ -247,6 +261,25 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicyTest do
       assert object.data["content"] =~ ~s(href="https://youtu.be/FOzijIeBGCg")
       refute object.data["content"] =~ "si="
       assert object.data["source"]["content"] == "watch https://youtu.be/FOzijIeBGCg"
+    end
+
+    test "is applied to local Markdown posts" do
+      user = insert(:user)
+
+      {:ok, activity} =
+        CommonAPI.post(user, %{
+          status:
+            "[sale](https://example.com/?id=1&utm_campaign=sale!), `https://example.com/?utm_source=code`",
+          content_type: "text/markdown"
+        })
+
+      object = Object.normalize(activity, fetch: false)
+
+      assert object.data["content"] =~ ~s(href="https://example.com/?id=1")
+      assert object.data["content"] =~ "https://example.com/?utm_source=code"
+
+      assert object.data["source"]["content"] ==
+               "[sale](https://example.com/?id=1), `https://example.com/?utm_source=code`"
     end
 
     test "ignores other activities" do

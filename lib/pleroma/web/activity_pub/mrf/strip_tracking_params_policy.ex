@@ -316,33 +316,9 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
     {["welt.de"], ["cid"], []}
   ]
 
-  # "&" in a URL may be written &amp;, &#38; or &#x26;. Any other entity
-  # (&quot;, &#39;, &lt;, ...) stands for a character URLs don't contain.
-  @amp "&(?:amp|#0*38|#x0*26);"
-  @entity "&(?:[a-z][a-z0-9]*|#[0-9]+|#x[0-9a-f]+);"
-  @trailing_punctuation "[.,;:!?)\\]}]*"
-
-  # A URL in HTML runs up to markup or a non-& entity. Trailing punctuation
-  # belongs to it at the end of an attribute value or link text, and to the
-  # surrounding prose anywhere else ("see https://example.com/?s=20.").
-  @html_url Regex.compile!(
-              "https?://(?:[^\\s<>\"'&]|#{@amp}|&(?!#{@entity}))+?" <>
-                "(?=[\"'>]|</a[\\s>]|#{@trailing_punctuation}" <>
-                "(?:\\s|<(?!/a[\\s>])|(?!#{@amp})#{@entity}|$))",
-              "i"
-            )
-
-  # The same for plain text and Markdown, where only an autolink's ">" ends
-  # the URL itself ("<https://example.com/?s=20!>").
-  @text_url Regex.compile!(
-              "https?://[^\\s<>\"']+?(?=>|#{@trailing_punctuation}(?:[\\s<\"']|$))",
-              "i"
-            )
-
-  # Mastodon spells out links as <span class="invisible">https://www.</span>,
-  # <span class="ellipsis">first 30 characters</span>,
-  # <span class="invisible">the rest</span>.
-  @mastodon_link_text ~r/(<span class="invisible">)(https?:\/\/(?:www\.)?)(<\/span><span class="(?:ellipsis)?">)([^<]*)(<\/span><span class="invisible">)([^<]*)(<\/span>)/
+  # Characters that can continue a URL, used to tell where a link address
+  # ends inside source text.
+  @url_char "[\\w\\-~%/=&#+@]"
 
   @impl true
   def history_awareness, do: :auto
@@ -350,13 +326,19 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
   @impl true
   def filter(%{"type" => type, "object" => %{} = object} = activity)
       when type in ["Create", "Update"] do
-    object =
-      object
-      |> update_present("content", &map_strings(&1, fn html -> strip_html(html) end))
-      |> update_present("contentMap", &map_strings(&1, fn html -> strip_html(html) end))
-      |> update_present("source", &strip_source/1)
+    {object, replaced} =
+      Enum.reduce(["content", "contentMap"], {object, %{}}, fn field, {object, replaced} ->
+        case object do
+          %{^field => value} ->
+            {value, field_replaced} = clean_html_values(value)
+            {Map.put(object, field, value), Map.merge(replaced, field_replaced)}
 
-    {:ok, Map.put(activity, "object", object)}
+          _ ->
+            {object, replaced}
+        end
+      end)
+
+    {:ok, Map.put(activity, "object", clean_source(object, replaced))}
   end
 
   def filter(activity), do: {:ok, activity}
@@ -364,109 +346,174 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
   @impl true
   def describe, do: {:ok, %{}}
 
-  defp update_present(object, field, fun) do
-    case object do
-      %{^field => value} -> Map.put(object, field, fun.(value))
-      _ -> object
-    end
-  end
+  defp clean_html_values(html) when is_binary(html), do: clean_html(html)
 
-  defp map_strings(value, fun) when is_binary(value), do: fun.(value)
+  defp clean_html_values(%{} = map) do
+    Enum.reduce(map, {map, %{}}, fn
+      {key, html}, {map, replaced} when is_binary(html) ->
+        {html, html_replaced} = clean_html(html)
+        {Map.put(map, key, html), Map.merge(replaced, html_replaced)}
 
-  defp map_strings(%{} = map, fun) do
-    Map.new(map, fn
-      {key, value} when is_binary(value) -> {key, fun.(value)}
-      pair -> pair
+      _, acc ->
+        acc
     end)
   end
 
-  defp map_strings(value, _fun), do: value
+  defp clean_html_values(value), do: {value, %{}}
 
-  defp strip_source(%{"mediaType" => media_type} = source) when is_binary(media_type) do
-    # Compare the base type only: "text/html; charset=utf-8", "TEXT/HTML"
-    base_type = media_type |> String.split(";", parts: 2) |> hd() |> String.trim()
-
-    if String.downcase(base_type) == "text/html" do
-      map_strings(source, &strip_html/1)
-    else
-      map_strings(source, &strip_text/1)
-    end
-  end
-
-  defp strip_source(source), do: map_strings(source, &strip_text/1)
-
-  @doc "Removes tracking parameters from links in an HTML fragment."
-  @spec strip_html(String.t()) :: String.t()
-  def strip_html(html) do
-    if String.contains?(html, "?") do
-      html
-      |> strip_mastodon_link_text()
-      |> then(&Regex.replace(@html_url, &1, fn url -> strip_html_url(url) end))
-    else
-      html
-    end
-  end
-
-  @doc "Removes tracking parameters from links in plain text or Markdown."
-  @spec strip_text(String.t()) :: String.t()
-  def strip_text(text) do
-    if String.contains?(text, "?") do
-      Regex.replace(@text_url, text, fn url -> strip_text_url(url) end)
-    else
-      text
-    end
-  end
-
-  defp strip_html_url(url) do
-    decoded = HtmlEntities.decode(url)
-    stripped = strip_url(decoded)
-
-    if stripped == decoded, do: url, else: HtmlEntities.encode(stripped)
-  end
-
-  defp strip_text_url(url) do
-    # Markdown may spell "&" as &amp;; keep whichever spelling was used.
-    escaped? = String.contains?(url, "&amp;")
-    decoded = if escaped?, do: String.replace(url, "&amp;", "&"), else: url
-    stripped = strip_url(decoded)
-
-    cond do
-      stripped == decoded -> url
-      escaped? -> String.replace(stripped, "&", "&amp;")
-      true -> stripped
-    end
-  end
-
-  # The full URL is split over three spans; the stripped URL is written back at
-  # the same offsets, so a link cut off after 30 characters stays cut off.
-  defp strip_mastodon_link_text(html) do
-    Regex.replace(@mastodon_link_text, html, fn whole,
-                                                open,
-                                                prefix,
-                                                middle,
-                                                display,
-                                                close_middle,
-                                                rest,
-                                                close ->
-      display = HtmlEntities.decode(display)
-      url = prefix <> display <> HtmlEntities.decode(rest)
-      stripped = strip_url(url)
-
-      if stripped == url do
-        whole
+  # Source text has no markup to say where a link ends, so instead of guessing
+  # it gets exactly the replacements made to the links in the content.
+  defp clean_source(%{"source" => %{"content" => content} = source} = object, replaced)
+       when is_binary(content) do
+    content =
+      if html_media_type?(source["mediaType"]) do
+        content |> clean_html() |> elem(0)
       else
-        offset = String.length(prefix) + String.length(display)
-
-        Enum.join([
-          open,
-          prefix,
-          middle,
-          HtmlEntities.encode(String.slice(stripped, String.length(prefix)..(offset - 1)//1)),
-          close_middle,
-          HtmlEntities.encode(String.slice(stripped, offset..-1//1)),
-          close
-        ])
+        replace_urls(content, replaced)
       end
+
+    Map.put(object, "source", Map.put(source, "content", content))
+  end
+
+  defp clean_source(%{"source" => source} = object, replaced) when is_binary(source) do
+    Map.put(object, "source", replace_urls(source, replaced))
+  end
+
+  defp clean_source(object, _replaced), do: object
+
+  # Compare the base type only: "text/html; charset=utf-8", "TEXT/HTML"
+  defp html_media_type?(media_type) when is_binary(media_type) do
+    media_type
+    |> String.split(";", parts: 2)
+    |> hd()
+    |> String.trim()
+    |> String.downcase()
+    |> Kernel.==("text/html")
+  end
+
+  defp html_media_type?(_), do: false
+
+  # Linkify turns "www.example.com/?utm_source=x" into an http:// link, so the
+  # address is also looked for without its scheme. Longer addresses go first,
+  # and a match must not continue into a longer URL.
+  defp replace_urls(text, replaced) do
+    replaced
+    |> Enum.flat_map(fn {original, cleaned} ->
+      case Regex.run(~r/^https?:\/\//i, original) do
+        [scheme] ->
+          if String.starts_with?(cleaned, scheme) do
+            [
+              {original, cleaned},
+              {String.replace_prefix(original, scheme, ""),
+               String.replace_prefix(cleaned, scheme, "")}
+            ]
+          else
+            [{original, cleaned}]
+          end
+
+        nil ->
+          [{original, cleaned}]
+      end
+    end)
+    |> Enum.sort_by(fn {original, _} -> -String.length(original) end)
+    |> Enum.reduce(text, fn {original, cleaned}, text ->
+      Regex.replace(
+        ~r/(?<![\w.\-\/@:])#{Regex.escape(original)}(?!#{@url_char}|[.,;:!?]+#{@url_char})/u,
+        text,
+        fn _ -> cleaned end
+      )
+    end)
+  end
+
+  @doc "Removes tracking parameters from the links in an HTML fragment."
+  @spec strip_html(String.t()) :: String.t()
+  def strip_html(html), do: html |> clean_html() |> elem(0)
+
+  # Only <a href> and link text that spells out the link's own URL are
+  # changed; URLs in code blocks or prose are left as written. Returns the
+  # cleaned HTML and the replaced link addresses.
+  defp clean_html(html) do
+    with true <- String.contains?(html, "?"),
+         {:ok, tree} <- Floki.parse_fragment(html),
+         {tree, replaced} when replaced != %{} <-
+           Floki.traverse_and_update(tree, %{}, &clean_link/2) do
+      {Floki.raw_html(tree), replaced}
+    else
+      _ -> {html, %{}}
+    end
+  end
+
+  defp clean_link({"a", attrs, children} = link, replaced) do
+    with {"href", href} <- List.keyfind(attrs, "href", 0),
+         cleaned when cleaned != href <- strip_url(href) do
+      attrs = List.keystore(attrs, "href", 0, {"href", cleaned})
+      {{"a", attrs, clean_link_text(children, href)}, Map.put(replaced, href, cleaned)}
+    else
+      _ -> {link, replaced}
+    end
+  end
+
+  defp clean_link(node, replaced), do: {node, replaced}
+
+  # Mastodon splits link text over several spans (scheme, first 30
+  # characters, rest), so the cleaned text is written back over the original
+  # text nodes at the same offsets.
+  defp clean_link_text(children, href) do
+    text = Floki.text(children)
+
+    if display_form(text) == display_form(href) do
+      cleaned =
+        if Regex.match?(~r/^https?:\/\//i, text) do
+          strip_url(text)
+        else
+          ("https://" <> text) |> strip_url() |> String.replace_prefix("https://", "")
+        end
+
+      {children, _} = rewrite_text_nodes(children, cleaned, count_text_nodes(children))
+      children
+    else
+      children
+    end
+  end
+
+  # Percent-decoded URL without scheme and "www.", to compare link text with
+  # the link it belongs to.
+  defp display_form(url) do
+    decoded =
+      try do
+        URI.decode(url)
+      rescue
+        ArgumentError -> url
+      end
+
+    String.replace(decoded, ~r/^(https?:\/\/)?(www\.)?/i, "")
+  end
+
+  defp count_text_nodes(nodes) do
+    Enum.reduce(nodes, 0, fn
+      text, count when is_binary(text) -> count + 1
+      {_tag, _attrs, children}, count -> count + count_text_nodes(children)
+      _, count -> count
+    end)
+  end
+
+  # Walks text nodes in order; each takes as many characters as it had, the
+  # last one takes the rest. The accumulator is {offset, text nodes left}.
+  defp rewrite_text_nodes(nodes, cleaned, remaining, offset \\ 0) do
+    Enum.map_reduce(nodes, {offset, remaining}, fn
+      text, {offset, 1} when is_binary(text) ->
+        {String.slice(cleaned, offset..-1//1), {offset + String.length(text), 0}}
+
+      text, {offset, remaining} when is_binary(text) ->
+        length = String.length(text)
+        {String.slice(cleaned, offset, length), {offset + length, remaining - 1}}
+
+      {tag, attrs, children}, {offset, remaining} ->
+        {children, {offset, remaining}} = rewrite_text_nodes(children, cleaned, remaining, offset)
+        {{tag, attrs, children}, {offset, remaining}}
+
+      node, acc ->
+        {node, acc}
     end)
   end
 
