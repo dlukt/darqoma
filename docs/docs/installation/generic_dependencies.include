@@ -1,8 +1,8 @@
 ## Required dependencies
 
-* PostgreSQL 12+
-* Elixir 1.15+ (currently tested up to 1.19)
-* Erlang OTP 25+ (currently tested up to OTP28)
+* PostgreSQL 14+
+* Elixir 1.17+ (currently tested up to 1.19)
+* Erlang OTP 27+ (currently tested up to OTP28)
 * git
 * file / libmagic
 * gcc (clang might also work)
