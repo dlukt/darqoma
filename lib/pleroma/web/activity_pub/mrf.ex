@@ -149,6 +149,7 @@ defmodule Pleroma.Web.ActivityPub.MRF do
     |> Enum.concat([
       Pleroma.Web.ActivityPub.MRF.HashtagPolicy,
       Pleroma.Web.ActivityPub.MRF.InlineQuotePolicy,
+      Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy,
       Pleroma.Web.ActivityPub.MRF.NormalizeMarkup,
       Pleroma.Web.ActivityPub.MRF.DirectMessageDisabledPolicy
     ])

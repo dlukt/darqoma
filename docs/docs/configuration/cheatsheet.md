@@ -155,6 +155,7 @@ Additionally the following MRFs will *always* be aplied and cannot be disabled:
     (See [`:mrf_inline_quote`](#mrf_inline_quote))
 * `Pleroma.Web.ActivityPub.MRF.NormalizeMarkup`: Pass inbound HTML through a scrubber to make sure it doesn't have anything unusual in it.
     (See [`:mrf_normalize_markup`](#mrf_normalize_markup))
+* `Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy`: Removes tracking parameters such as `utm_*`, `at_*`, `fbclid`, `gclid` or YouTube's `si` from links in local and remote posts.
 
 
 ## Federation

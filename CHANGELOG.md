@@ -22,6 +22,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     this fixes vote percetanges for new and refreshed remote multi-selection polls
 - new config options to restrict unauthenticated search API access under `:pleroma, :restrict_unauthenticated, :search`
 - extended MFM support further
+- tracking parameters (`utm_*`, `at_*`, `fbclid`, YouTube's `si`, ...) are now removed from links
+    in local and remote posts by the new always-on `StripTrackingParamsPolicy` MRF
 
 ### Fixed
 - fixed status search not respecting `resolve=false`
