@@ -319,18 +319,25 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
   # "&" in a URL may be written &amp;, &#38; or &#x26;. Any other entity
   # (&quot;, &#39;, &lt;, ...) stands for a character URLs don't contain.
   @amp "&(?:amp|#0*38|#x0*26);"
-  @entity "&(?:[a-z]+|#[0-9]+|#x[0-9a-f]+);"
+  @entity "&(?:[a-z][a-z0-9]*|#[0-9]+|#x[0-9a-f]+);"
+  @trailing_punctuation "[.,;:!?)\\]}]*"
 
   # A URL in HTML runs up to markup or a non-& entity. Trailing punctuation
   # belongs to it at the end of an attribute value or link text, and to the
   # surrounding prose anywhere else ("see https://example.com/?s=20.").
   @html_url Regex.compile!(
               "https?://(?:[^\\s<>\"'&]|#{@amp}|&(?!#{@entity}))+?" <>
-                "(?=[\"']|</a[\\s>]|[.,;:!?)\\]}]*(?:[\\s>]|<(?!/a[\\s>])|(?!#{@amp})#{@entity}|$))",
+                "(?=[\"'>]|</a[\\s>]|#{@trailing_punctuation}" <>
+                "(?:\\s|<(?!/a[\\s>])|(?!#{@amp})#{@entity}|$))",
               "i"
             )
-  @text_url ~r/https?:\/\/[^\s<>"']+/i
-  @trailing_punctuation ~r/[.,;:!?)\]}]+$/
+
+  # The same for plain text and Markdown, where only an autolink's ">" ends
+  # the URL itself ("<https://example.com/?s=20!>").
+  @text_url Regex.compile!(
+              "https?://[^\\s<>\"']+?(?=>|#{@trailing_punctuation}(?:[\\s<\"']|$))",
+              "i"
+            )
 
   # Mastodon spells out links as <span class="invisible">https://www.</span>,
   # <span class="ellipsis">first 30 characters</span>,
@@ -375,8 +382,16 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
 
   defp map_strings(value, _fun), do: value
 
-  defp strip_source(%{"mediaType" => "text/html"} = source),
-    do: map_strings(source, &strip_html/1)
+  defp strip_source(%{"mediaType" => media_type} = source) when is_binary(media_type) do
+    # Compare the base type only: "text/html; charset=utf-8", "TEXT/HTML"
+    base_type = media_type |> String.split(";", parts: 2) |> hd() |> String.trim()
+
+    if String.downcase(base_type) == "text/html" do
+      map_strings(source, &strip_html/1)
+    else
+      map_strings(source, &strip_text/1)
+    end
+  end
 
   defp strip_source(source), do: map_strings(source, &strip_text/1)
 
@@ -409,22 +424,16 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicy do
     if stripped == decoded, do: url, else: HtmlEntities.encode(stripped)
   end
 
-  defp strip_text_url(match) do
-    {url, trailing} =
-      case Regex.run(@trailing_punctuation, match) do
-        [trailing] -> {binary_part(match, 0, byte_size(match) - byte_size(trailing)), trailing}
-        nil -> {match, ""}
-      end
-
+  defp strip_text_url(url) do
     # Markdown may spell "&" as &amp;; keep whichever spelling was used.
     escaped? = String.contains?(url, "&amp;")
     decoded = if escaped?, do: String.replace(url, "&amp;", "&"), else: url
     stripped = strip_url(decoded)
 
     cond do
-      stripped == decoded -> match
-      escaped? -> String.replace(stripped, "&", "&amp;") <> trailing
-      true -> stripped <> trailing
+      stripped == decoded -> url
+      escaped? -> String.replace(stripped, "&", "&amp;")
+      true -> stripped
     end
   end
 

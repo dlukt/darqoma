@@ -120,6 +120,18 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicyTest do
                ~s(<a href="https://example.com/?id=1">https://example.com/?id=1</a>)
     end
 
+    test "keeps trailing punctuation with the URL in unquoted attributes" do
+      assert StripTrackingParamsPolicy.strip_html(
+               "<a href=https://example.com/?id=1&amp;utm_campaign=sale!>link</a>"
+             ) == "<a href=https://example.com/?id=1>link</a>"
+    end
+
+    test "stops at named entities containing digits" do
+      assert StripTrackingParamsPolicy.strip_html(
+               "<p>https://example.com/?utm_source=x&frac12; rest</p>"
+             ) == "<p>https://example.com/&frac12; rest</p>"
+    end
+
     test "leaves trailing punctuation of prose in place" do
       assert StripTrackingParamsPolicy.strip_html(
                "<p>see https://x.com/a?s=20. or (https://x.com/b?s=20)</p>"
@@ -137,6 +149,13 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicyTest do
       assert StripTrackingParamsPolicy.strip_text(
                "<https://example.com/?utm_source=x&amp;id=5&amp;b=2>"
              ) == "<https://example.com/?id=5&amp;b=2>"
+    end
+
+    test "keeps trailing punctuation with the URL in Markdown autolinks" do
+      assert StripTrackingParamsPolicy.strip_text(
+               "<https://example.com/?id=1&utm_campaign=sale!>"
+             ) ==
+               "<https://example.com/?id=1>"
     end
 
     test "keeps trailing punctuation and Markdown syntax" do
@@ -178,20 +197,22 @@ defmodule Pleroma.Web.ActivityPub.MRF.StripTrackingParamsPolicyTest do
     end
 
     test "cleans HTML source as HTML" do
-      message = %{
-        "type" => "Create",
-        "object" => %{
-          "source" => %{
-            "content" => ~s(<a href="https://example.com/?utm_source=x&amp;id=5">link</a>),
-            "mediaType" => "text/html"
+      for media_type <- ["text/html", "TEXT/HTML", "text/html; charset=utf-8"] do
+        message = %{
+          "type" => "Create",
+          "object" => %{
+            "source" => %{
+              "content" => ~s(<a href="https://example.com/?utm_source=x&#38;id=5">link</a>),
+              "mediaType" => media_type
+            }
           }
         }
-      }
 
-      assert {:ok, %{"object" => %{"source" => source}}} =
-               StripTrackingParamsPolicy.filter(message)
+        assert {:ok, %{"object" => %{"source" => source}}} =
+                 StripTrackingParamsPolicy.filter(message)
 
-      assert source["content"] == ~s(<a href="https://example.com/?id=5">link</a>)
+        assert source["content"] == ~s(<a href="https://example.com/?id=5">link</a>)
+      end
     end
 
     test "is history-aware" do
