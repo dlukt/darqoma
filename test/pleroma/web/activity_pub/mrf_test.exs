@@ -116,6 +116,7 @@ defmodule Pleroma.Web.ActivityPub.MRFTest do
           "NoOpPolicy",
           "HashtagPolicy",
           "InlineQuotePolicy",
+          "StripTrackingParamsPolicy",
           "NormalizeMarkup",
           "DirectMessageDisabledPolicy"
         ],
@@ -138,6 +139,7 @@ defmodule Pleroma.Web.ActivityPub.MRFTest do
           "MRFModuleMock",
           "HashtagPolicy",
           "InlineQuotePolicy",
+          "StripTrackingParamsPolicy",
           "NormalizeMarkup",
           "DirectMessageDisabledPolicy"
         ],
